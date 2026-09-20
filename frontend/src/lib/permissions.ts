@@ -1,0 +1,11 @@
+export type Role = 'SUPER_ADMIN'|'ACADEMIC_ADMIN'|'TIMETABLE_COORDINATOR'|'HOD_OR_DEAN_APPROVER'|'CLASS_COORDINATOR'|'FACULTY'|'ROOM_LAB_COORDINATOR'|'READ_ONLY_VIEWER';
+const write = new Set<Role>(['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR']);
+export const canCreate = (role?: Role) => !!role && write.has(role);
+export const canEdit = canCreate;
+export const canDeactivate = canCreate;
+export const canManageRooms = (role?: Role) => role === 'SUPER_ADMIN' || role === 'ROOM_LAB_COORDINATOR';
+export const canManageFaculty = (role?: Role) => canCreate(role);
+export const canImport = canCreate;
+export const canEditAvailability = (role?: Role) => !!role && role !== 'READ_ONLY_VIEWER' && role !== 'HOD_OR_DEAN_APPROVER';
+export const canManageFacultyAvailability = (role?: Role) => !!role && ['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR','ROOM_LAB_COORDINATOR'].includes(role);
+export const canManageRoomAvailability = canManageRooms;

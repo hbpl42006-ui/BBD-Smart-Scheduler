@@ -1,0 +1,9 @@
+Django>=5.0
+djangorestframework
+djangorestframework-simplejwt
+django-filter
+django-cors-headers
+openpyxl
+drf-spectacular
+pytest
+pytest-django

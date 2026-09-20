@@ -1,0 +1,30 @@
+# Python
+/backend/venv/
+/backend/.venv/
+venv/
+.venv/
+**/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+/backend/.pytest_cache/
+# Environment files
+.env
+.env.*
+!.env.example
+/backend/.env
+/frontend/.env
+/frontend/.env.local
+# Next.js / Node
+node_modules/
+.next/
+/frontend/node_modules/
+/frontend/.next/
+# Local database
+*.sqlite3
+# Nested Git backup
+/frontend/.git-backup/
+# OS
+.DS_Store
+Thumbs.db
