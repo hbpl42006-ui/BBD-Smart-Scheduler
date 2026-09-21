@@ -10,7 +10,7 @@ export function Header({ title }: { title: string }) {
   useEffect(() => { me().then(setUser).catch(() => undefined); }, []);
   const initials = user ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}` : '...';
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/95 px-4 sm:px-8">
+    <header className="no-print sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-white/95 px-4 sm:px-8">
       <SidebarTrigger />
       <div className="flex-1"><p className="text-xs text-slate-400">Academic Management /</p><h1 className="text-base font-semibold text-slate-900">{title}</h1></div>
       <button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-blue-600" /></button>

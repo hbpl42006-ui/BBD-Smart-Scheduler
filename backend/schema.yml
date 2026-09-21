@@ -1,0 +1,4549 @@
+openapi: 3.0.3
+info:
+  title: BBD Smart Scheduler API
+  version: 1.0.0
+paths:
+  /api/academic-sessions/:
+    get:
+      operationId: academic_sessions_list
+      parameters:
+      - in: query
+        name: institution
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - academic-sessions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAcademicSessionList'
+          description: ''
+    post:
+      operationId: academic_sessions_create
+      tags:
+      - academic-sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcademicSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AcademicSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AcademicSession'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicSession'
+          description: ''
+  /api/academic-sessions/{id}/:
+    get:
+      operationId: academic_sessions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this academic session.
+        required: true
+      tags:
+      - academic-sessions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicSession'
+          description: ''
+    put:
+      operationId: academic_sessions_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this academic session.
+        required: true
+      tags:
+      - academic-sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcademicSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AcademicSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AcademicSession'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicSession'
+          description: ''
+    patch:
+      operationId: academic_sessions_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this academic session.
+        required: true
+      tags:
+      - academic-sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAcademicSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAcademicSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAcademicSession'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicSession'
+          description: ''
+    delete:
+      operationId: academic_sessions_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this academic session.
+        required: true
+      tags:
+      - academic-sessions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Login'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Login'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Login'
+          description: ''
+  /api/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/course-offerings/:
+    get:
+      operationId: course_offerings_list
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+      - in: query
+        name: course
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: section
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: semester
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - course-offerings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCourseOfferingList'
+          description: ''
+    post:
+      operationId: course_offerings_create
+      tags:
+      - course-offerings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseOffering'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseOffering'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseOffering'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOffering'
+          description: ''
+  /api/course-offerings/{id}/:
+    get:
+      operationId: course_offerings_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course offering.
+        required: true
+      tags:
+      - course-offerings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOffering'
+          description: ''
+    put:
+      operationId: course_offerings_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course offering.
+        required: true
+      tags:
+      - course-offerings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseOffering'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseOffering'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseOffering'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOffering'
+          description: ''
+    patch:
+      operationId: course_offerings_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course offering.
+        required: true
+      tags:
+      - course-offerings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseOffering'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseOffering'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCourseOffering'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOffering'
+          description: ''
+    delete:
+      operationId: course_offerings_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course offering.
+        required: true
+      tags:
+      - course-offerings
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/courses/:
+    get:
+      operationId: courses_list
+      parameters:
+      - in: query
+        name: id
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - courses
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCourseList'
+          description: ''
+    post:
+      operationId: courses_create
+      tags:
+      - courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Course'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Course'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Course'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+  /api/courses/{id}/:
+    get:
+      operationId: courses_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - courses
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    put:
+      operationId: courses_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Course'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Course'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Course'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    patch:
+      operationId: courses_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCourse'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCourse'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCourse'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+    delete:
+      operationId: courses_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this course.
+        required: true
+      tags:
+      - courses
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/dashboard/summary/:
+    get:
+      operationId: dashboard_summary_retrieve
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/departments/:
+    get:
+      operationId: departments_list
+      parameters:
+      - in: query
+        name: institution
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - departments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDepartmentList'
+          description: ''
+    post:
+      operationId: departments_create
+      tags:
+      - departments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Department'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Department'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+  /api/departments/{id}/:
+    get:
+      operationId: departments_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this department.
+        required: true
+      tags:
+      - departments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    put:
+      operationId: departments_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this department.
+        required: true
+      tags:
+      - departments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Department'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Department'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Department'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    patch:
+      operationId: departments_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this department.
+        required: true
+      tags:
+      - departments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartment'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartment'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartment'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+          description: ''
+    delete:
+      operationId: departments_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this department.
+        required: true
+      tags:
+      - departments
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/entries/{entry_id}/lock/:
+    post:
+      operationId: entries_lock_create
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - entries
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/entries/{entry_id}/unlock/:
+    post:
+      operationId: entries_unlock_create
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - entries
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/faculty/:
+    get:
+      operationId: faculty_list
+      parameters:
+      - in: query
+        name: department
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - faculty
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFacultyList'
+          description: ''
+    post:
+      operationId: faculty_create
+      tags:
+      - faculty
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faculty'
+          description: ''
+  /api/faculty-availability/:
+    get:
+      operationId: faculty_availability_list
+      parameters:
+      - in: query
+        name: faculty
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: is_available
+        schema:
+          type: boolean
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: weekday
+        schema:
+          type: integer
+          enum:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+        description: |-
+          * `0` - Monday
+          * `1` - Tuesday
+          * `2` - Wednesday
+          * `3` - Thursday
+          * `4` - Friday
+          * `5` - Saturday
+          * `6` - Sunday
+      tags:
+      - faculty-availability
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFacultyAvailabilityList'
+          description: ''
+    post:
+      operationId: faculty_availability_create
+      tags:
+      - faculty-availability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacultyAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FacultyAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FacultyAvailability'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacultyAvailability'
+          description: ''
+  /api/faculty-availability/{id}/:
+    get:
+      operationId: faculty_availability_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty availability.
+        required: true
+      tags:
+      - faculty-availability
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacultyAvailability'
+          description: ''
+    put:
+      operationId: faculty_availability_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty availability.
+        required: true
+      tags:
+      - faculty-availability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacultyAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FacultyAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FacultyAvailability'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacultyAvailability'
+          description: ''
+    patch:
+      operationId: faculty_availability_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty availability.
+        required: true
+      tags:
+      - faculty-availability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFacultyAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFacultyAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFacultyAvailability'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacultyAvailability'
+          description: ''
+    delete:
+      operationId: faculty_availability_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty availability.
+        required: true
+      tags:
+      - faculty-availability
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/faculty/{id}/:
+    get:
+      operationId: faculty_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty.
+        required: true
+      tags:
+      - faculty
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faculty'
+          description: ''
+    put:
+      operationId: faculty_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty.
+        required: true
+      tags:
+      - faculty
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faculty'
+          description: ''
+    patch:
+      operationId: faculty_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty.
+        required: true
+      tags:
+      - faculty
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFaculty'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFaculty'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFaculty'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faculty'
+          description: ''
+    delete:
+      operationId: faculty_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty.
+        required: true
+      tags:
+      - faculty
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/faculty/{id}/availability/:
+    get:
+      operationId: faculty_availability_retrieve_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty.
+        required: true
+      tags:
+      - faculty
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faculty'
+          description: ''
+    post:
+      operationId: faculty_availability_create_2
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this faculty.
+        required: true
+      tags:
+      - faculty
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Faculty'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faculty'
+          description: ''
+  /api/generation-runs/{run_id}/:
+    get:
+      operationId: generation_runs_retrieve
+      parameters:
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - generation-runs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationRun'
+          description: ''
+  /api/generation-runs/{run_id}/apply/:
+    post:
+      operationId: generation_runs_apply_create
+      parameters:
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - generation-runs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/imports/course-offerings/{action}/:
+    post:
+      operationId: imports_course_offerings_create
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      tags:
+      - imports
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/imports/courses/{action}/:
+    post:
+      operationId: imports_courses_create
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      tags:
+      - imports
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/imports/faculty/{action}/:
+    post:
+      operationId: imports_faculty_create
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      tags:
+      - imports
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/imports/rooms/{action}/:
+    post:
+      operationId: imports_rooms_create
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      tags:
+      - imports
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/imports/sections/{action}/:
+    post:
+      operationId: imports_sections_create
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      tags:
+      - imports
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/institutions/:
+    get:
+      operationId: institutions_list
+      parameters:
+      - in: query
+        name: id
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - institutions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInstitutionList'
+          description: ''
+    post:
+      operationId: institutions_create
+      tags:
+      - institutions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Institution'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Institution'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Institution'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Institution'
+          description: ''
+  /api/institutions/{id}/:
+    get:
+      operationId: institutions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this institution.
+        required: true
+      tags:
+      - institutions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Institution'
+          description: ''
+    put:
+      operationId: institutions_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this institution.
+        required: true
+      tags:
+      - institutions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Institution'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Institution'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Institution'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Institution'
+          description: ''
+    patch:
+      operationId: institutions_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this institution.
+        required: true
+      tags:
+      - institutions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInstitution'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInstitution'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInstitution'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Institution'
+          description: ''
+    delete:
+      operationId: institutions_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this institution.
+        required: true
+      tags:
+      - institutions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/programs/:
+    get:
+      operationId: programs_list
+      parameters:
+      - in: query
+        name: department
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - programs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProgramList'
+          description: ''
+    post:
+      operationId: programs_create
+      tags:
+      - programs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Program'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Program'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Program'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+  /api/programs/{id}/:
+    get:
+      operationId: programs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this program.
+        required: true
+      tags:
+      - programs
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+    put:
+      operationId: programs_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this program.
+        required: true
+      tags:
+      - programs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Program'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Program'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Program'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+    patch:
+      operationId: programs_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this program.
+        required: true
+      tags:
+      - programs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProgram'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProgram'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProgram'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Program'
+          description: ''
+    delete:
+      operationId: programs_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this program.
+        required: true
+      tags:
+      - programs
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/room-availability/:
+    get:
+      operationId: room_availability_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: room
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - AVAILABLE
+          - BLOCKED
+          - MAINTENANCE
+        description: |-
+          * `AVAILABLE` - Available
+          * `BLOCKED` - Blocked
+          * `MAINTENANCE` - Maintenance
+      - in: query
+        name: weekday
+        schema:
+          type: integer
+      tags:
+      - room-availability
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRoomAvailabilityList'
+          description: ''
+    post:
+      operationId: room_availability_create
+      tags:
+      - room-availability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RoomAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RoomAvailability'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomAvailability'
+          description: ''
+  /api/room-availability/{id}/:
+    get:
+      operationId: room_availability_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room availability.
+        required: true
+      tags:
+      - room-availability
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomAvailability'
+          description: ''
+    put:
+      operationId: room_availability_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room availability.
+        required: true
+      tags:
+      - room-availability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RoomAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RoomAvailability'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomAvailability'
+          description: ''
+    patch:
+      operationId: room_availability_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room availability.
+        required: true
+      tags:
+      - room-availability
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRoomAvailability'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRoomAvailability'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRoomAvailability'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomAvailability'
+          description: ''
+    delete:
+      operationId: room_availability_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room availability.
+        required: true
+      tags:
+      - room-availability
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/rooms/:
+    get:
+      operationId: rooms_list
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+      - in: query
+        name: building
+        schema:
+          type: string
+      - in: query
+        name: floor
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: room_type
+        schema:
+          type: string
+          enum:
+          - AUDITORIUM
+          - CLASSROOM
+          - COMPUTER_LAB
+          - LAB
+          - OTHER
+          - SEMINAR_HALL
+        description: |-
+          * `CLASSROOM` - Classroom
+          * `COMPUTER_LAB` - Computer Lab
+          * `LAB` - Lab
+          * `SEMINAR_HALL` - Seminar Hall
+          * `AUDITORIUM` - Auditorium
+          * `OTHER` - Other
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRoomList'
+          description: ''
+    post:
+      operationId: rooms_create
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Room'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Room'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Room'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+          description: ''
+  /api/rooms/{id}/:
+    get:
+      operationId: rooms_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room.
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+          description: ''
+    put:
+      operationId: rooms_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room.
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Room'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Room'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Room'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+          description: ''
+    patch:
+      operationId: rooms_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room.
+        required: true
+      tags:
+      - rooms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRoom'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRoom'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRoom'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+          description: ''
+    delete:
+      operationId: rooms_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this room.
+        required: true
+      tags:
+      - rooms
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/sections/:
+    get:
+      operationId: sections_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: program
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: semester
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: year
+        schema:
+          type: integer
+      tags:
+      - sections
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSectionList'
+          description: ''
+    post:
+      operationId: sections_create
+      tags:
+      - sections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Section'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Section'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Section'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+  /api/sections/{id}/:
+    get:
+      operationId: sections_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - sections
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    put:
+      operationId: sections_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - sections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Section'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Section'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Section'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    patch:
+      operationId: sections_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - sections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSection'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSection'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSection'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    delete:
+      operationId: sections_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this section.
+        required: true
+      tags:
+      - sections
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/semesters/:
+    get:
+      operationId: semesters_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: session
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: type
+        schema:
+          type: string
+          enum:
+          - EVEN
+          - ODD
+        description: |-
+          * `ODD` - Odd
+          * `EVEN` - Even
+      tags:
+      - semesters
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSemesterList'
+          description: ''
+    post:
+      operationId: semesters_create
+      tags:
+      - semesters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Semester'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Semester'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Semester'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Semester'
+          description: ''
+  /api/semesters/{id}/:
+    get:
+      operationId: semesters_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this semester.
+        required: true
+      tags:
+      - semesters
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Semester'
+          description: ''
+    put:
+      operationId: semesters_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this semester.
+        required: true
+      tags:
+      - semesters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Semester'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Semester'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Semester'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Semester'
+          description: ''
+    patch:
+      operationId: semesters_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this semester.
+        required: true
+      tags:
+      - semesters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSemester'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSemester'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSemester'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Semester'
+          description: ''
+    delete:
+      operationId: semesters_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this semester.
+        required: true
+      tags:
+      - semesters
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/time-slot-templates/:
+    get:
+      operationId: time_slot_templates_list
+      parameters:
+      - in: query
+        name: institution
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - time-slot-templates
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTimeSlotTemplateList'
+          description: ''
+    post:
+      operationId: time_slot_templates_create
+      tags:
+      - time-slot-templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeSlotTemplate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimeSlotTemplate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimeSlotTemplate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlotTemplate'
+          description: ''
+  /api/time-slot-templates/{id}/:
+    get:
+      operationId: time_slot_templates_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot template.
+        required: true
+      tags:
+      - time-slot-templates
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlotTemplate'
+          description: ''
+    put:
+      operationId: time_slot_templates_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot template.
+        required: true
+      tags:
+      - time-slot-templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeSlotTemplate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimeSlotTemplate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimeSlotTemplate'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlotTemplate'
+          description: ''
+    patch:
+      operationId: time_slot_templates_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot template.
+        required: true
+      tags:
+      - time-slot-templates
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTimeSlotTemplate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTimeSlotTemplate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTimeSlotTemplate'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlotTemplate'
+          description: ''
+    delete:
+      operationId: time_slot_templates_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot template.
+        required: true
+      tags:
+      - time-slot-templates
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/time-slots/:
+    get:
+      operationId: time_slots_list
+      parameters:
+      - in: query
+        name: is_break
+        schema:
+          type: boolean
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: template
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - time-slots
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTimeSlotList'
+          description: ''
+    post:
+      operationId: time_slots_create
+      tags:
+      - time-slots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeSlot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimeSlot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimeSlot'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlot'
+          description: ''
+  /api/time-slots/{id}/:
+    get:
+      operationId: time_slots_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot.
+        required: true
+      tags:
+      - time-slots
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlot'
+          description: ''
+    put:
+      operationId: time_slots_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot.
+        required: true
+      tags:
+      - time-slots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeSlot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimeSlot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimeSlot'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlot'
+          description: ''
+    patch:
+      operationId: time_slots_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot.
+        required: true
+      tags:
+      - time-slots
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTimeSlot'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTimeSlot'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTimeSlot'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSlot'
+          description: ''
+    delete:
+      operationId: time_slots_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this time slot.
+        required: true
+      tags:
+      - time-slots
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/timetables/:
+    get:
+      operationId: timetables_retrieve
+      tags:
+      - timetables
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: timetables_create
+      tags:
+      - timetables
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/timetables/{timetable_id}/versions/:
+    get:
+      operationId: timetables_versions_retrieve
+      parameters:
+      - in: path
+        name: timetable_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - timetables
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: timetables_versions_create
+      parameters:
+      - in: path
+        name: timetable_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - timetables
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/available-rooms/:
+    get:
+      operationId: versions_available_rooms_retrieve
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/entries/:
+    get:
+      operationId: versions_entries_retrieve
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: versions_entries_create
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/entries/{entry_id}/:
+    patch:
+      operationId: versions_entries_partial_update
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+    delete:
+      operationId: versions_entries_destroy
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/versions/{version_id}/faculty-timetable/:
+    get:
+      operationId: versions_faculty_timetable_retrieve
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/generation-preflight/:
+    post:
+      operationId: versions_generation_preflight_create
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationConfig'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GenerationConfig'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GenerationConfig'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/versions/{version_id}/generation-runs/:
+    get:
+      operationId: versions_generation_runs_list
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GenerationRun'
+          description: ''
+    post:
+      operationId: versions_generation_runs_create
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerationConfig'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GenerationConfig'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GenerationConfig'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationRun'
+          description: ''
+  /api/versions/{version_id}/room-allocation/:
+    get:
+      operationId: versions_room_allocation_retrieve
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/section-timetable/:
+    get:
+      operationId: versions_section_timetable_retrieve
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/validate/:
+    post:
+      operationId: versions_validate_create
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/versions/{version_id}/validate-entry/:
+    post:
+      operationId: versions_validate_entry_create
+      parameters:
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - versions
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    AcademicSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: e.g., 2026-27
+          maxLength: 50
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        institution:
+          type: string
+          format: uuid
+      required:
+      - created_at
+      - end_date
+      - id
+      - institution
+      - name
+      - start_date
+      - updated_at
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 255
+        credit:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        short_code:
+          type: string
+          maxLength: 20
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - credit
+      - id
+      - name
+      - short_code
+      - updated_at
+    CourseOffering:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course_name:
+          type: string
+          readOnly: true
+        course_code:
+          type: string
+          readOnly: true
+        section_name:
+          type: string
+          readOnly: true
+        weekly_periods:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        default_class_type:
+          $ref: '#/components/schemas/DefaultClassTypeEnum'
+        required_block_size:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        room_type_requirement:
+          type: string
+          maxLength: 50
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        semester:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+        course:
+          type: string
+          format: uuid
+        preferred_room:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - course
+      - course_code
+      - course_name
+      - created_at
+      - id
+      - section
+      - section_name
+      - semester
+      - updated_at
+      - weekly_periods
+    DefaultClassTypeEnum:
+      enum:
+      - LECTURE
+      - TUTORIAL
+      - PRACTICAL
+      - COMMON
+      - LIBRARY
+      - OTHER
+      type: string
+      description: |-
+        * `LECTURE` - Lecture
+        * `TUTORIAL` - Tutorial
+        * `PRACTICAL` - Practical
+        * `COMMON` - Common
+        * `LIBRARY` - Library
+        * `OTHER` - Other
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        institution_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        institution:
+          type: string
+          format: uuid
+      required:
+      - code
+      - created_at
+      - id
+      - institution
+      - institution_name
+      - name
+      - updated_at
+    Faculty:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        employee_code:
+          type: string
+          maxLength: 50
+        initials:
+          type: string
+          maxLength: 10
+        max_daily_periods:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        max_weekly_periods:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+        department:
+          type: string
+          format: uuid
+      required:
+      - created_at
+      - department
+      - email
+      - employee_code
+      - id
+      - initials
+      - name
+      - updated_at
+      - user
+    FacultyAvailability:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        weekday:
+          allOf:
+          - $ref: '#/components/schemas/WeekdayEnum'
+          minimum: 0
+          maximum: 9223372036854775807
+        is_available:
+          type: boolean
+        preference_weight:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        faculty:
+          type: string
+          format: uuid
+        time_slot:
+          type: string
+          format: uuid
+      required:
+      - created_at
+      - faculty
+      - id
+      - time_slot
+      - updated_at
+      - weekday
+    GenerationConfig:
+      type: object
+      properties:
+        mode:
+          allOf:
+          - $ref: '#/components/schemas/ModeEnum'
+          default: FILL_GAPS
+        section_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        offering_rules:
+          type: array
+          items: {}
+        max_solve_seconds:
+          type: integer
+          maximum: 60
+          minimum: 1
+        random_seed:
+          type: integer
+        soft_constraints: {}
+    GenerationRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        mode:
+          type: string
+          maxLength: 40
+        status:
+          allOf:
+          - $ref: '#/components/schemas/GenerationRunStatusEnum'
+          readOnly: true
+        solver_status:
+          allOf:
+          - $ref: '#/components/schemas/SolverStatusEnum'
+          readOnly: true
+        input_config: {}
+        input_snapshot: {}
+        result:
+          readOnly: true
+        diagnostics:
+          readOnly: true
+        statistics:
+          readOnly: true
+        objective_score:
+          type: number
+          format: double
+          readOnly: true
+          nullable: true
+        source_fingerprint:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        applied_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        error_message:
+          type: string
+        timetable:
+          type: string
+          format: uuid
+        source_version:
+          type: string
+          format: uuid
+        created_by:
+          type: string
+          format: uuid
+          readOnly: true
+        applied_version:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+      required:
+      - applied_at
+      - applied_version
+      - completed_at
+      - created_at
+      - created_by
+      - diagnostics
+      - id
+      - objective_score
+      - result
+      - solver_status
+      - source_fingerprint
+      - source_version
+      - started_at
+      - statistics
+      - status
+      - timetable
+    GenerationRunStatusEnum:
+      enum:
+      - PENDING
+      - RUNNING
+      - SUCCEEDED
+      - INFEASIBLE
+      - FAILED
+      - APPLIED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `RUNNING` - Running
+        * `SUCCEEDED` - Succeeded
+        * `INFEASIBLE` - Infeasible
+        * `FAILED` - Failed
+        * `APPLIED` - Applied
+    Institution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 50
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        timezone:
+          type: string
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - id
+      - name
+      - updated_at
+    Login:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+      required:
+      - email
+      - password
+    ModeEnum:
+      enum:
+      - FILL_GAPS
+      - REBUILD_UNLOCKED
+      type: string
+      description: |-
+        * `FILL_GAPS` - FILL_GAPS
+        * `REBUILD_UNLOCKED` - REBUILD_UNLOCKED
+    PaginatedAcademicSessionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicSession'
+    PaginatedCourseList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Course'
+    PaginatedCourseOfferingList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseOffering'
+    PaginatedDepartmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Department'
+    PaginatedFacultyAvailabilityList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacultyAvailability'
+    PaginatedFacultyList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Faculty'
+    PaginatedInstitutionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Institution'
+    PaginatedProgramList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Program'
+    PaginatedRoomAvailabilityList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomAvailability'
+    PaginatedRoomList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+    PaginatedSectionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
+    PaginatedSemesterList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Semester'
+    PaginatedTimeSlotList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+    PaginatedTimeSlotTemplateList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlotTemplate'
+    PatchedAcademicSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: e.g., 2026-27
+          maxLength: 50
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        institution:
+          type: string
+          format: uuid
+    PatchedCourse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 255
+        credit:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+        short_code:
+          type: string
+          maxLength: 20
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedCourseOffering:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course_name:
+          type: string
+          readOnly: true
+        course_code:
+          type: string
+          readOnly: true
+        section_name:
+          type: string
+          readOnly: true
+        weekly_periods:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        default_class_type:
+          $ref: '#/components/schemas/DefaultClassTypeEnum'
+        required_block_size:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        room_type_requirement:
+          type: string
+          maxLength: 50
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        semester:
+          type: string
+          format: uuid
+        section:
+          type: string
+          format: uuid
+        course:
+          type: string
+          format: uuid
+        preferred_room:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedDepartment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        institution_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        institution:
+          type: string
+          format: uuid
+    PatchedFaculty:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        employee_code:
+          type: string
+          maxLength: 50
+        initials:
+          type: string
+          maxLength: 10
+        max_daily_periods:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        max_weekly_periods:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        user:
+          type: string
+          format: uuid
+        department:
+          type: string
+          format: uuid
+    PatchedFacultyAvailability:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        weekday:
+          allOf:
+          - $ref: '#/components/schemas/WeekdayEnum'
+          minimum: 0
+          maximum: 9223372036854775807
+        is_available:
+          type: boolean
+        preference_weight:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        faculty:
+          type: string
+          format: uuid
+        time_slot:
+          type: string
+          format: uuid
+    PatchedInstitution:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 50
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        timezone:
+          type: string
+          maxLength: 50
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedProgram:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        department_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 50
+        duration_years:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        department:
+          type: string
+          format: uuid
+    PatchedRoom:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+        building:
+          type: string
+          maxLength: 100
+        floor:
+          type: string
+          maxLength: 50
+        capacity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        room_type:
+          $ref: '#/components/schemas/RoomTypeEnum'
+        facilities: {}
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    PatchedRoomAvailability:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        weekday:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+          description: 0 for Monday, 6 for Sunday
+        date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RoomAvailabilityStatusEnum'
+        reason:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        room:
+          type: string
+          format: uuid
+        time_slot:
+          type: string
+          format: uuid
+    PatchedSection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        program_name:
+          type: string
+          readOnly: true
+        semester_name:
+          type: string
+          readOnly: true
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        name:
+          type: string
+          maxLength: 50
+        student_strength:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        program:
+          type: string
+          format: uuid
+        semester:
+          type: string
+          format: uuid
+        coordinator:
+          type: string
+          format: uuid
+          nullable: true
+    PatchedSemester:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        session_name:
+          type: string
+          readOnly: true
+        academic_session:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 50
+        number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        session:
+          type: string
+          format: uuid
+    PatchedTimeSlot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          description: e.g., 09:00-10:00
+          maxLength: 50
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_break:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        template:
+          type: string
+          format: uuid
+    PatchedTimeSlotTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        institution:
+          type: string
+          format: uuid
+    Program:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        department_name:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        code:
+          type: string
+          maxLength: 50
+        duration_years:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        department:
+          type: string
+          format: uuid
+      required:
+      - code
+      - created_at
+      - department
+      - department_name
+      - duration_years
+      - id
+      - name
+      - updated_at
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 50
+        building:
+          type: string
+          maxLength: 100
+        floor:
+          type: string
+          maxLength: 50
+        capacity:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        room_type:
+          $ref: '#/components/schemas/RoomTypeEnum'
+        facilities: {}
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - building
+      - capacity
+      - code
+      - created_at
+      - floor
+      - id
+      - updated_at
+    RoomAvailability:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        weekday:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: -9223372036854775808
+          format: int64
+          nullable: true
+          description: 0 for Monday, 6 for Sunday
+        date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RoomAvailabilityStatusEnum'
+        reason:
+          type: string
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        room:
+          type: string
+          format: uuid
+        time_slot:
+          type: string
+          format: uuid
+      required:
+      - created_at
+      - id
+      - room
+      - time_slot
+      - updated_at
+    RoomAvailabilityStatusEnum:
+      enum:
+      - AVAILABLE
+      - BLOCKED
+      - MAINTENANCE
+      type: string
+      description: |-
+        * `AVAILABLE` - Available
+        * `BLOCKED` - Blocked
+        * `MAINTENANCE` - Maintenance
+    RoomTypeEnum:
+      enum:
+      - CLASSROOM
+      - COMPUTER_LAB
+      - LAB
+      - SEMINAR_HALL
+      - AUDITORIUM
+      - OTHER
+      type: string
+      description: |-
+        * `CLASSROOM` - Classroom
+        * `COMPUTER_LAB` - Computer Lab
+        * `LAB` - Lab
+        * `SEMINAR_HALL` - Seminar Hall
+        * `AUDITORIUM` - Auditorium
+        * `OTHER` - Other
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        program_name:
+          type: string
+          readOnly: true
+        semester_name:
+          type: string
+          readOnly: true
+        year:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        name:
+          type: string
+          maxLength: 50
+        student_strength:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        program:
+          type: string
+          format: uuid
+        semester:
+          type: string
+          format: uuid
+        coordinator:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - created_at
+      - id
+      - name
+      - program
+      - program_name
+      - semester
+      - semester_name
+      - updated_at
+      - year
+    Semester:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        session_name:
+          type: string
+          readOnly: true
+        academic_session:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 50
+        number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        session:
+          type: string
+          format: uuid
+      required:
+      - academic_session
+      - created_at
+      - end_date
+      - id
+      - name
+      - number
+      - session
+      - session_name
+      - start_date
+      - type
+      - updated_at
+    SolverStatusEnum:
+      enum:
+      - OPTIMAL
+      - FEASIBLE
+      - INFEASIBLE
+      - MODEL_INVALID
+      - UNKNOWN
+      type: string
+      description: |-
+        * `OPTIMAL` - Optimal
+        * `FEASIBLE` - Feasible
+        * `INFEASIBLE` - Infeasible
+        * `MODEL_INVALID` - Model Invalid
+        * `UNKNOWN` - Unknown
+    TimeSlot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          description: e.g., 09:00-10:00
+          maxLength: 50
+        start_time:
+          type: string
+          format: time
+        end_time:
+          type: string
+          format: time
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        is_break:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        template:
+          type: string
+          format: uuid
+      required:
+      - created_at
+      - end_time
+      - id
+      - label
+      - order
+      - start_time
+      - template
+      - updated_at
+    TimeSlotTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        institution:
+          type: string
+          format: uuid
+      required:
+      - created_at
+      - id
+      - institution
+      - name
+      - updated_at
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TypeEnum:
+      enum:
+      - ODD
+      - EVEN
+      type: string
+      description: |-
+        * `ODD` - Odd
+        * `EVEN` - Even
+    WeekdayEnum:
+      enum:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      type: integer
+      description: |-
+        * `0` - Monday
+        * `1` - Tuesday
+        * `2` - Wednesday
+        * `3` - Thursday
+        * `4` - Friday
+        * `5` - Saturday
+        * `6` - Sunday
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -10,6 +10,10 @@ export const canEditAvailability = (role?: Role) => !!role && role !== 'READ_ONL
 export const canManageFacultyAvailability = (role?: Role) => !!role && ['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR','ROOM_LAB_COORDINATOR'].includes(role);
 export const canManageRoomAvailability = canManageRooms;
 export const canCreateTimetable = canCreate;
+export const canGenerateTimetable = canCreate;
+export const canApplyGeneratedTimetable = canCreate;
+export const canViewGenerationRuns = (role?: Role) => !!role;
+export const canReviewTimetables = (role?: Role) => !!role && ['SUPER_ADMIN','ACADEMIC_ADMIN','HOD_OR_DEAN_APPROVER'].includes(role);
 export const canEditSchedule = canCreate;
 export const canDeleteScheduleEntry = canCreate;
 export const canLockScheduleEntry = canCreate;

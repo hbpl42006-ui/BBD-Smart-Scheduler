@@ -5,6 +5,9 @@ from rest_framework.test import APIClient
 from accounts.models import User, Role
 from institutions.models import Institution
 from rooms.models import Room
+from common.serializers import FacultySerializer
+from faculty.models import Faculty
+from institutions.models import Department
 
 @pytest.fixture
 def client(): return APIClient()
@@ -31,3 +34,29 @@ def test_import_commit(client,user,db):
     upload=SimpleUploadedFile('rooms.csv',body,content_type='text/csv'); assert client.post('/api/imports/rooms/commit/',{'file':upload},format='multipart').status_code==201
     assert Room.objects.filter(code='IMP2').exists()
 def test_schema(client): assert client.get('/api/schema/').status_code==200
+
+def test_faculty_serializer_handles_linked_and_unlinked_faculty(db):
+    institution = Institution.objects.create(name='Test Institute', code='TEST')
+    department = Department.objects.create(institution=institution, name='Computer Science', code='CSE')
+    linked = User.objects.create_user('linked-faculty@test.local', 'StrongPass123!', first_name='Aarav', last_name='Sharma')
+    Faculty.objects.create(user=linked, employee_code='F001', initials='AS', department=department)
+    Faculty.objects.create(user=None, employee_code='F002', initials='RK', department=department)
+    data = FacultySerializer(Faculty.objects.order_by('employee_code'), many=True).data
+    assert data[0]['name'] == 'Aarav Sharma'
+    assert data[0]['email'] == linked.email
+    assert data[1]['name'] == 'RK'
+    assert data[1]['email'] is None
+
+def test_faculty_endpoint_returns_mixed_linked_and_unlinked_records(client, user, db):
+    institution = Institution.objects.create(name='API Institute', code='API')
+    department = Department.objects.create(institution=institution, name='Engineering', code='ENG')
+    linked = User.objects.create_user('api-faculty@test.local', 'StrongPass123!', first_name='Mira', last_name='Das')
+    Faculty.objects.create(user=linked, employee_code='AF001', initials='MD', department=department)
+    Faculty.objects.create(user=None, employee_code='AF002', initials='NP', department=department)
+    before = User.objects.count()
+    auth(client, user)
+    response = client.get('/api/faculty/')
+    assert response.status_code == 200
+    records = response.data['results'] if isinstance(response.data, dict) and 'results' in response.data else response.data
+    assert {record['name'] for record in records} >= {'Mira Das', 'NP'}
+    assert User.objects.count() == before

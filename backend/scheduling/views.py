@@ -9,6 +9,12 @@ from scheduling.services.validation import validate_entry,validate_version
 from common.permissions import RolePermission
 from scheduling.services.audit import record
 from accounts.models import Role
+from faculty.models import Faculty
+from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+from rest_framework import serializers
+from django.utils import timezone
+from accounts.models import Role
 
 class TimetableList(APIView):
     permission_classes=[IsAuthenticated]
@@ -79,10 +85,25 @@ class EntryUnlock(EntryLock):
 class SectionTimetable(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request,version_id):
-        qs=ScheduleEntry.objects.filter(version_id=version_id,section_id=request.query_params.get('section')).select_related('start_slot','room','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
+        section_id=request.query_params.get('section')
+        if getattr(request.user,'role',None)==Role.FACULTY and not ScheduleEntryFaculty.objects.filter(schedule_entry__version_id=version_id,schedule_entry__section_id=section_id,faculty__user=request.user).exists(): return Response({'detail':'You do not have access to this section timetable.'},status=403)
+        qs=ScheduleEntry.objects.filter(version_id=version_id,section_id=section_id).select_related('start_slot','room','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
 class FacultyTimetable(SectionTimetable):
     def get(self,request,version_id):
         qs=ScheduleEntry.objects.filter(version_id=version_id,faculty_assignments__faculty_id=request.query_params.get('faculty')).distinct().select_related('start_slot','room','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
+class MyFacultyTimetable(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request):
+        faculty=getattr(request.user,'faculty_profile',None)
+        if not faculty:return Response({'detail':'No Faculty profile is linked to this account.'},status=404)
+        timetable=Timetable.objects.filter(active=True,department=faculty.department).order_by('-updated_at').first()
+        if not timetable:return Response({'faculty':{'id':str(faculty.id),'name':faculty.initials or faculty.employee_code},'entries':[]})
+        version=TimetableVersion.objects.filter(timetable=timetable,status='PUBLISHED').order_by('-version_no').first()
+        if not version:return Response({'faculty':{'id':str(faculty.id),'name':faculty.initials or faculty.employee_code},'timetable':{'id':str(timetable.id),'title':timetable.title},'entries':[],'message':'No published timetable is available yet.'})
+        qs=ScheduleEntry.objects.filter(version=version,faculty_assignments__faculty=faculty).distinct().select_related('start_slot','room','section','course_offering__course')
+        user_name=f'{faculty.user.first_name} {faculty.user.last_name}'.strip() if faculty.user else ''
+        sections=list(version.entries.filter(faculty_assignments__faculty=faculty).select_related('section__program','section__semester').values('section_id','section__name','section__program__name','section__semester__name').distinct())
+        return Response({'faculty':{'id':str(faculty.id),'name':user_name or faculty.initials or faculty.employee_code,'department':faculty.department.name},'timetable':{'id':str(timetable.id),'title':timetable.title,'academic_session':timetable.academic_session.name,'semester':timetable.semester.name},'version':{'id':str(version.id),'version_no':version.version_no,'status':version.status},'sections':[{'id':str(row['section_id']),'name':row['section__name'],'program_name':row['section__program__name'],'semester_name':row['section__semester__name']} for row in sections],'entries':ScheduleEntrySerializer(qs,many=True).data})
 class RoomAllocation(SectionTimetable):
     def get(self,request,version_id):
         qs=ScheduleEntry.objects.filter(version_id=version_id).select_related('start_slot','room','section','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
@@ -102,3 +123,101 @@ class AvailableRooms(APIView):
 class ValidateVersion(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request,version_id): return Response(validate_version(TimetableVersion.objects.get(pk=version_id)))
+
+def _can(request, roles):
+    return request.user.is_superuser or request.user.role in roles
+
+def _validation(version):
+    result=validate_version(version)
+    if not version.entries.exists():
+        result['valid']=False; result['conflicts'].append({'type':'EMPTY_TIMETABLE','severity':'ERROR','message':'Timetable must contain at least one schedule entry.'})
+    return result
+
+class VersionLifecycle(APIView):
+    permission_classes=[IsAuthenticated]
+    action=None
+    def post(self,request,version_id):
+        with transaction.atomic():
+            version=TimetableVersion.objects.select_for_update().select_related('timetable').get(pk=version_id)
+            now=timezone.now()
+            if self.action=='submit':
+                if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.TIMETABLE_COORDINATOR}): return Response({'detail':'You do not have permission to submit timetables.'},403)
+                if version.status!='DRAFT': return Response({'detail':'Only draft versions can be submitted.'},400)
+                validation=_validation(version)
+                if not validation['valid']: return Response({'detail':'Timetable has blocking conflicts.','validation':validation},400)
+                version.status='IN_REVIEW';version.submitted_by=request.user;version.submitted_at=now;version.save(update_fields=['status','submitted_by','submitted_at','updated_at']);record('TIMETABLE_SUBMITTED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk)
+            elif self.action in ('approve','reject'):
+                if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.HOD_OR_DEAN_APPROVER}): return Response({'detail':'You do not have approval permission.'},403)
+                if version.status!='IN_REVIEW': return Response({'detail':'Only versions in review can be reviewed.'},400)
+                if self.action=='approve':
+                    validation=_validation(version)
+                    if not validation['valid']: return Response({'detail':'Timetable has blocking conflicts.','validation':validation},400)
+                    version.status='APPROVED';version.approved_by=request.user;version.approved_at=now;version.save(update_fields=['status','approved_by','approved_at','updated_at']);record('TIMETABLE_APPROVED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk)
+                else:
+                    reason=str(request.data.get('reason','')).strip()
+                    if not reason:return Response({'detail':'A rejection reason is required.'},400)
+                    version.status='DRAFT';version.rejected_by=request.user;version.rejected_at=now;version.rejection_reason=reason;version.save(update_fields=['status','rejected_by','rejected_at','rejection_reason','updated_at']);record('TIMETABLE_REJECTED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk,metadata={'reason':reason})
+            elif self.action=='publish':
+                if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN}): return Response({'detail':'You do not have publishing permission.'},403)
+                if version.status!='APPROVED': return Response({'detail':'Only approved versions can be published.'},400)
+                validation=_validation(version)
+                if not validation['valid']: return Response({'detail':'Timetable has blocking conflicts.','validation':validation},400)
+                previous_published=list(TimetableVersion.objects.filter(timetable=version.timetable,status='PUBLISHED').exclude(pk=version.pk))
+                for archived in previous_published:
+                    archived.status='ARCHIVED'; archived.save(update_fields=['status','updated_at'])
+                    record('TIMETABLE_ARCHIVED',request.user,timetable=version.timetable,version=archived,entity_type='TimetableVersion',entity_id=archived.pk,metadata={'superseded_by_version_id':str(version.pk),'superseded_by_version_number':version.version_no})
+                version.status='PUBLISHED';version.published_by=request.user;version.published_at=now;version.save(update_fields=['status','published_by','published_at','updated_at']);record('TIMETABLE_PUBLISHED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk)
+            else:return Response({'detail':'Unsupported lifecycle action.'},400)
+        return Response(TimetableVersionSerializer(version).data)
+
+class VersionAudit(APIView):
+    permission_classes=[IsAuthenticated]
+    @extend_schema(responses=inline_serializer(name='VersionHistoryEvent',fields={'id':serializers.UUIDField(),'event_type':serializers.CharField(),'actor_id':serializers.UUIDField(allow_null=True),'actor_name':serializers.CharField(allow_null=True),'actor_email':serializers.CharField(allow_null=True),'metadata':serializers.DictField(),'created_at':serializers.DateTimeField()}))
+    def get(self,request,version_id):
+        if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.TIMETABLE_COORDINATOR,Role.HOD_OR_DEAN_APPROVER}): return Response({'detail':'You do not have permission to view lifecycle history.'},403)
+        from audit.models import AuditEvent
+        events=AuditEvent.objects.filter(version_id=version_id).select_related('actor')
+        return Response([{'id':str(event.id),'event_type':event.event_type,'actor_id':str(event.actor_id) if event.actor_id else None,'actor_name':(f'{event.actor.first_name} {event.actor.last_name}'.strip() or event.actor.email) if event.actor else None,'actor_email':event.actor.email if event.actor else None,'metadata':event.metadata,'created_at':event.created_at} for event in events])
+
+class CreateDraft(APIView):
+    permission_classes=[IsAuthenticated]
+    @extend_schema(request=None,responses=TimetableVersionSerializer)
+    def post(self,request,version_id):
+        if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.TIMETABLE_COORDINATOR}): return Response({'detail':'You do not have permission to create timetable drafts.'},403)
+        with transaction.atomic():
+            source=TimetableVersion.objects.select_for_update().select_related('timetable').get(pk=version_id)
+            if source.status!='PUBLISHED': return Response({'detail':'Only published versions can be used to create a new draft.'},400)
+            latest=TimetableVersion.objects.select_for_update().filter(timetable=source.timetable).order_by('-version_no').first()
+            version=TimetableVersion.objects.create(timetable=source.timetable,version_no=(latest.version_no+1 if latest else 1),created_by=request.user,previous_version=source,notes=f'Created from version {source.version_no}')
+            for entry in source.entries.all():
+                clone=ScheduleEntry.objects.create(version=version,section=entry.section,course_offering=entry.course_offering,weekday=entry.weekday,start_slot=entry.start_slot,block_length=entry.block_length,room=entry.room,entry_type=entry.entry_type,locked=entry.locked,note=entry.note)
+                ScheduleEntryFaculty.objects.bulk_create([ScheduleEntryFaculty(schedule_entry=clone,faculty=a.faculty,role=a.role) for a in entry.faculty_assignments.all()])
+            record('TIMETABLE_DRAFT_CREATED',request.user,timetable=source.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk,metadata={'source_version_id':str(source.pk),'new_version_id':str(version.pk),'source_version_number':source.version_no,'new_version_number':version.version_no})
+        return Response(TimetableVersionSerializer(version).data,status=201)
+
+class VersionCompare(APIView):
+    permission_classes=[IsAuthenticated]
+    @extend_schema(responses=inline_serializer(name='VersionComparison',fields={'from_version':serializers.DictField(),'to_version':serializers.DictField(),'summary':serializers.DictField(),'added':serializers.ListField(child=serializers.DictField()),'removed':serializers.ListField(child=serializers.DictField()),'changed':serializers.ListField(child=serializers.DictField())}))
+    def get(self,request):
+        if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.TIMETABLE_COORDINATOR,Role.HOD_OR_DEAN_APPROVER}): return Response({'detail':'You do not have permission to compare timetable versions.'},403)
+        left=TimetableVersion.objects.filter(pk=request.query_params.get('from')).first();right=TimetableVersion.objects.filter(pk=request.query_params.get('to')).first()
+        if not left or not right:return Response({'detail':'Both versions are required.'},400)
+        def rows(version):
+            return {(str(e.section_id),str(e.course_offering_id)):{'section':e.section.name,'course':e.course_offering.course.code,'weekday':e.weekday,'start_slot':str(e.start_slot_id),'room':str(e.room_id) if e.room_id else None,'faculty':sorted(str(x) for x in e.faculty_assignments.values_list('faculty_id',flat=True)),'block_length':e.block_length,'entry_type':e.entry_type} for e in version.entries.select_related('section','course_offering__course')}
+        a,b=rows(left),rows(right);added=[b[k] for k in b.keys()-a.keys()];removed=[a[k] for k in a.keys()-b.keys()];changed=[{'before':a[k],'after':b[k]} for k in a.keys()&b.keys() if a[k]!=b[k]]
+        return Response({'from_version':{'id':str(left.pk),'version_no':left.version_no,'status':left.status},'to_version':{'id':str(right.pk),'version_no':right.version_no,'status':right.status},'summary':{'added':len(added),'removed':len(removed),'changed':len(changed)},'added':added,'removed':removed,'changed':changed})
+
+class ApprovalQueue(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request):
+        if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.HOD_OR_DEAN_APPROVER}): return Response({'detail':'You do not have approval permission.'},403)
+        versions=TimetableVersion.objects.filter(status='IN_REVIEW').select_related('timetable__department','timetable__academic_session','timetable__semester','submitted_by')
+        return Response([{'id':str(v.pk),'timetable':str(v.timetable_id),'title':v.timetable.title,'version_no':v.version_no,'status':v.status,'department':v.timetable.department.name,'academic_session':v.timetable.academic_session.name,'semester':v.timetable.semester.name,'submitted_by':f'{v.submitted_by.first_name} {v.submitted_by.last_name}'.strip() or v.submitted_by.email if v.submitted_by else '—','submitted_at':v.submitted_at,'entry_count':v.entries.count()} for v in versions])
+
+class VersionReview(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request,version_id):
+        if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.HOD_OR_DEAN_APPROVER}): return Response({'detail':'You do not have approval permission.'},403)
+        v=TimetableVersion.objects.select_related('timetable','submitted_by').get(pk=version_id)
+        name=f'{v.submitted_by.first_name} {v.submitted_by.last_name}'.strip() if v.submitted_by else None
+        return Response({'id':str(v.pk),'timetable':v.timetable.title,'timetable_id':str(v.timetable_id),'source_version':str(v.pk),'version_no':v.version_no,'status':v.status,'created_at':v.created_at,'submitted_at':v.submitted_at,'submitted_by':name,'entry_count':v.entries.count()})

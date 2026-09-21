@@ -3,6 +3,9 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { me } from '@/lib/api/auth';
+import type { Role } from '@/lib/permissions';
+import { canReviewTimetables } from '@/lib/permissions';
 import {
   BookOpen,
   LayoutDashboard,
@@ -13,6 +16,7 @@ import {
   Table,
   Bell,
   FileText
+  ,CalendarDays
 } from 'lucide-react';
 
 import {
@@ -28,6 +32,7 @@ import {
 } from '@/components/ui/sidebar';
 
 const navItems = [
+  { title: 'My Timetable', url: '/my-timetable', icon: CalendarDays },
   {
     title: 'Dashboard',
     url: '/dashboard',
@@ -38,6 +43,7 @@ const navItems = [
     url: '/timetables',
     icon: Table,
   },
+  { title: 'Approvals', url: '/approvals', icon: FileText },
   {
     title: 'Room Allocation',
     url: '/room-allocation',
@@ -88,9 +94,12 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [role, setRole] = React.useState<Role>();
+  React.useEffect(() => { me().then(user => setRole(user.role as Role)).catch(() => setRole(undefined)); }, []);
+  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' || role === 'FACULTY') && (item.url !== '/approvals' || canReviewTimetables(role)));
 
   return (
-    <Sidebar>
+    <Sidebar className="no-print">
       <SidebarHeader className="border-b border-slate-200">
         <div className="flex items-center gap-3 px-4 py-5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-700 text-sm font-bold text-white">B</div>
@@ -102,7 +111,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-widest text-slate-400">Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton isActive={pathname === item.url || !!(item.items && pathname.startsWith(item.url))}>
                     <Link href={item.url} className="flex w-full items-center gap-2">

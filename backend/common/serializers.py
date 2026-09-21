@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import transaction
 from accounts.models import User
 from institutions.models import Institution, Department, Program
 from academics.models import AcademicSession, Semester, Section, Course, CourseOffering
@@ -42,12 +43,47 @@ class CourseOfferingSerializer(FriendlyModelSerializer):
     section_name = serializers.CharField(source='section.name', read_only=True)
     class Meta: model = CourseOffering; fields = '__all__'
 class FacultySerializer(FriendlyModelSerializer):
-    name = serializers.SerializerMethodField()
-    email = serializers.EmailField(source='user.email', read_only=True)
-    class Meta: model = Faculty; fields = '__all__'; extra_fields = ('name','email')
-    def get_name(self,obj): return f'{obj.user.first_name} {obj.user.last_name}'.strip()
-    @classmethod
-    def _declared_fields(cls): return super()._declared_fields()
+    email = serializers.EmailField(required=False, allow_blank=True, write_only=True)
+    password = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    has_login = serializers.SerializerMethodField()
+    class Meta: model = Faculty; fields = ('id','user','employee_code','initials','department','max_daily_periods','max_weekly_periods','name','email','password','has_login','created_at','updated_at'); read_only_fields=('user','created_at','updated_at','has_login')
+    def get_name(self,obj):
+        if obj.name: return obj.name
+        if obj.user:
+            user_name = f'{obj.user.first_name} {obj.user.last_name}'.strip()
+            if user_name: return user_name
+        return obj.initials or obj.employee_code or 'Unnamed faculty'
+    def get_has_login(self,obj): return bool(obj.user_id)
+    def validate_email(self,value):
+        if value and User.objects.filter(email=value).exclude(pk=self.instance.user_id if self.instance and self.instance.user_id else None).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+    def to_representation(self,obj):
+        data=super().to_representation(obj)
+        data['name']=self.get_name(obj)
+        data['email']=obj.user.email if obj.user else None
+        return data
+    def _sync_user_name(self,user,name):
+        parts=name.strip().split();user.first_name=parts[0] if parts else '';user.last_name=' '.join(parts[1:]);
+    def _account(self,validated,instance=None):
+        email=validated.pop('email',None);password=validated.pop('password',None);name=validated.get('name',instance.name if instance else '')
+        user=instance.user if instance else None
+        if not user and (email or password):
+            if not email: raise serializers.ValidationError({'email':'Email is required to create a faculty login account.'})
+            if not password: raise serializers.ValidationError({'password':'Password is required to create a faculty login account.'})
+            user=User(email=email,role='FACULTY');user.set_password(password);self._sync_user_name(user,name);user.save()
+        elif user:
+            if email: user.email=email
+            if password: user.set_password(password)
+            if name: self._sync_user_name(user,name)
+            user.save()
+        return user
+    def create(self,validated):
+        with transaction.atomic():
+            user=self._account(validated);return Faculty.objects.create(user=user,**validated)
+    def update(self,instance,validated):
+        with transaction.atomic():
+            user=self._account(validated,instance);instance.user=user;return super().update(instance,validated)
 class FacultyAvailabilitySerializer(FriendlyModelSerializer):
     class Meta: model = FacultyAvailability; fields = '__all__'
 class CourseOfferingFacultySerializer(FriendlyModelSerializer):
