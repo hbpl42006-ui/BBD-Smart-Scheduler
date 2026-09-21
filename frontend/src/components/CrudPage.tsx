@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-unused-expressions */
 'use client';
 import { useEffect,useState } from 'react'; import { Plus,Pencil,Trash2,Search } from 'lucide-react'; import { AdminLayout } from '@/components/layout/AdminLayout'; import { Header } from '@/components/layout/Header'; import { PageHeader } from '@/components/PageHeader'; import { Card,CardContent } from '@/components/ui/card'; import { Button } from '@/components/ui/button'; import { Input } from '@/components/ui/input'; import { me } from '@/lib/api/auth'; import { create,deactivate,list,update,type Entity } from '@/lib/api/resources'; import { BulkImportDialog } from '@/components/BulkImportDialog'; import { canCreate,canEdit,canDeactivate,canImport,type Role } from '@/lib/permissions';
 type Field={key:string;label:string;type?:string;required?:boolean;relation?:{endpoint:string;label:string}};

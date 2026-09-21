@@ -40,7 +40,14 @@ class EntryList(APIView):
         if version.status!='DRAFT': return Response({'detail':'Only draft versions can be changed.'},409)
         conflicts=validate_entry(version,request.data)
         if conflicts:return Response({'valid':False,'conflicts':conflicts},400)
-        s=ScheduleEntrySerializer(data={**request.data,'version':str(version.pk)});s.is_valid(raise_exception=True); entry=s.save(); record('ENTRY_CREATED',request.user,timetable=version.timetable,version=version,entity_type='ScheduleEntry',entity_id=entry.pk,new_data=ScheduleEntrySerializer(entry).data); return Response(ScheduleEntrySerializer(entry).data,status=201)
+        data={k:v for k,v in request.data.items() if k not in ('faculty_assignments','faculty_ids')};s=ScheduleEntrySerializer(data={**data,'version':str(version.pk)});s.is_valid(raise_exception=True); entry=s.save(); self._save_faculty(entry,request.data); record('ENTRY_CREATED',request.user,timetable=version.timetable,version=version,entity_type='ScheduleEntry',entity_id=entry.pk,new_data=ScheduleEntrySerializer(entry).data); return Response(ScheduleEntrySerializer(entry).data,status=201)
+    @staticmethod
+    def _save_faculty(entry,data):
+        assignments=data.get('faculty_assignments')
+        if assignments is None and data.get('faculty_ids') is not None: assignments=[{'faculty_id':x,'role':'PRIMARY' if i==0 else 'CO_FACULTY'} for i,x in enumerate(data['faculty_ids'])]
+        if assignments is not None:
+            ScheduleEntryFaculty.objects.filter(schedule_entry=entry).delete()
+            ScheduleEntryFaculty.objects.bulk_create([ScheduleEntryFaculty(schedule_entry=entry,faculty_id=x['faculty_id'],role=x.get('role','PRIMARY')) for x in assignments])
 class EntryDetail(APIView):
     permission_classes=[IsAuthenticated]
     def patch(self,request,version_id,entry_id):
@@ -50,7 +57,7 @@ class EntryDetail(APIView):
         if entry.version.status!='DRAFT':return Response({'detail':'Only drafts can be edited.'},409)
         data={**{'section':entry.section_id,'course_offering':entry.course_offering_id,'weekday':entry.weekday,'start_slot':entry.start_slot_id,'block_length':entry.block_length,'room':entry.room_id},**request.data}; conflicts=validate_entry(entry.version,data,entry.pk)
         if conflicts:return Response({'valid':False,'conflicts':conflicts},400)
-        old=ScheduleEntrySerializer(entry).data;s=ScheduleEntrySerializer(entry,data=request.data,partial=True);s.is_valid(raise_exception=True);entry=s.save();record('ENTRY_UPDATED',request.user,timetable=entry.version.timetable,version=entry.version,entity_type='ScheduleEntry',entity_id=entry.pk,old_data=old,new_data=ScheduleEntrySerializer(entry).data);return Response(ScheduleEntrySerializer(entry).data)
+        old=ScheduleEntrySerializer(entry).data;data={k:v for k,v in request.data.items() if k not in ('faculty_assignments','faculty_ids')};s=ScheduleEntrySerializer(entry,data=data,partial=True);s.is_valid(raise_exception=True);entry=s.save();EntryList._save_faculty(entry,request.data);record('ENTRY_UPDATED',request.user,timetable=entry.version.timetable,version=entry.version,entity_type='ScheduleEntry',entity_id=entry.pk,old_data=old,new_data=ScheduleEntrySerializer(entry).data);return Response(ScheduleEntrySerializer(entry).data)
     def delete(self,request,version_id,entry_id):
         if not RolePermission().has_permission(request,self):return Response({'detail':'Permission denied'},403)
         entry=ScheduleEntry.objects.get(pk=entry_id,version_id=version_id)

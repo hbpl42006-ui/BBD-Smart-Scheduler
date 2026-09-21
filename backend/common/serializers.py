@@ -11,9 +11,10 @@ class FriendlyModelSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
+    faculty_id = serializers.UUIDField(source='faculty_profile.id', read_only=True, allow_null=True)
     class Meta:
         model = User
-        fields = ('id','email','first_name','last_name','role','is_active','is_staff')
+        fields = ('id','email','first_name','last_name','role','is_active','is_staff','faculty_id')
 
 class InstitutionSerializer(FriendlyModelSerializer):
     class Meta: model = Institution; fields = '__all__'
