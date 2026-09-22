@@ -18,17 +18,20 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from common.api import import_data
+from common.api import import_data, room_import_template, faculty_import, course_import, faculty_course_mapping_import
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from common.api import *
 from scheduling.views import TimetableList,VersionList,EntryList,EntryDetail,ValidateVersion,ValidateEntry,EntryLock,EntryUnlock,SectionTimetable,FacultyTimetable,MyFacultyTimetable,RoomAllocation,AvailableRooms,VersionLifecycle,VersionAudit,ApprovalQueue,VersionReview,CreateDraft,VersionCompare
 from scheduling.generation_views import GenerationPreflight,GenerationRunList,GenerationRunDetail,GenerationApply
 from notifications.views import NotificationList,NotificationUnreadCount,NotificationRead,NotificationMarkAllRead,NotificationPreferences,WhatsAppWebhook
+from reports.views import FacultyWorkloadView,RoomUtilizationView,SectionTimetableReportView,FacultyTimetableReportView,RoomTimetableView,CourseAllocationView,UnscheduledView,ConflictsView,VersionActivityView,AnalyticsView,FreeRoomsView,HealthView
 
 router = DefaultRouter()
 for prefix, cls in [('institutions',InstitutionViewSet),('departments',DepartmentViewSet),('programs',ProgramViewSet),('academic-sessions',AcademicSessionViewSet),('semesters',SemesterViewSet),('sections',SectionViewSet),('courses',CourseViewSet),('course-offerings',CourseOfferingViewSet),('faculty',FacultyViewSet),('faculty-availability',FacultyAvailabilityViewSet),('rooms',RoomViewSet),('room-availability',RoomAvailabilityViewSet),('time-slot-templates',TimeSlotTemplateViewSet),('time-slots',TimeSlotViewSet)]: router.register(prefix, cls)
 router.register('room-availabilities', RoomAvailabilityViewSet, basename='roomavailabilities')
 urlpatterns = [path('admin/', admin.site.urls), path('api/schema/', SpectacularAPIView.as_view(), name='schema'), path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'), path('api/auth/login/', LoginView.as_view()), path('api/auth/refresh/', TokenRefreshView.as_view()), path('api/auth/me/', me), path('api/dashboard/summary/', dashboard_summary), path('api/', include(router.urls))]
+urlpatterns += [path('api/imports/rooms/template/', room_import_template)]
+urlpatterns += [path('api/faculty/import/', faculty_import),path('api/faculty/import-template/', faculty_import),path('api/courses/import/', course_import),path('api/courses/import-template/', course_import),path('api/faculty-course-mappings/import/', faculty_course_mapping_import),path('api/faculty-course-mappings/import-template/', faculty_course_mapping_import)]
 for _kind in ('faculty','courses','course-offerings','sections','rooms'):
     urlpatterns += [path(f'api/imports/{_kind}/<str:action>/', import_data)]
 urlpatterns += [path('api/me/faculty-timetable/',MyFacultyTimetable.as_view()),path('api/timetables/',TimetableList.as_view()),path('api/timetables/<uuid:timetable_id>/versions/',VersionList.as_view()),path('api/versions/<uuid:version_id>/entries/',EntryList.as_view()),path('api/versions/<uuid:version_id>/entries/<uuid:entry_id>/',EntryDetail.as_view()),path('api/versions/<uuid:version_id>/validate/',ValidateVersion.as_view()),path('api/versions/<uuid:version_id>/validate-entry/',ValidateEntry.as_view()),path('api/versions/<uuid:version_id>/section-timetable/',SectionTimetable.as_view()),path('api/versions/<uuid:version_id>/faculty-timetable/',FacultyTimetable.as_view()),path('api/versions/<uuid:version_id>/room-allocation/',RoomAllocation.as_view()),path('api/versions/<uuid:version_id>/available-rooms/',AvailableRooms.as_view()),path('api/entries/<uuid:entry_id>/lock/',EntryLock.as_view()),path('api/entries/<uuid:entry_id>/unlock/',EntryUnlock.as_view())]
@@ -38,3 +41,5 @@ urlpatterns += [path('api/timetable-approvals/', ApprovalQueue.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/review/', VersionReview.as_view()),path('api/versions/<uuid:version_id>/history/', VersionAudit.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/create-draft/', CreateDraft.as_view()),path('api/versions/compare/', VersionCompare.as_view())]
 urlpatterns += [path('api/notifications/', NotificationList.as_view()),path('api/notifications/unread-count/', NotificationUnreadCount.as_view()),path('api/notifications/<uuid:notification_id>/read/', NotificationRead.as_view()),path('api/notifications/mark-all-read/', NotificationMarkAllRead.as_view()),path('api/notifications/preferences/',NotificationPreferences.as_view()),path('api/notifications/whatsapp/webhook/',WhatsAppWebhook.as_view())]
+urlpatterns += [path('api/reports/faculty-workload/',FacultyWorkloadView.as_view()),path('api/reports/room-utilization/',RoomUtilizationView.as_view()),path('api/reports/section-timetable/',SectionTimetableReportView.as_view()),path('api/reports/faculty-timetable/',FacultyTimetableReportView.as_view()),path('api/reports/room-timetable/',RoomTimetableView.as_view()),path('api/reports/course-allocation/',CourseAllocationView.as_view()),path('api/reports/unscheduled/',UnscheduledView.as_view()),path('api/reports/conflicts/',ConflictsView.as_view()),path('api/reports/free-rooms/',FreeRoomsView.as_view()),path('api/reports/version-activity/',VersionActivityView.as_view()),path('api/reports/analytics/',AnalyticsView.as_view())]
+urlpatterns += [path('api/health/',HealthView.as_view())]

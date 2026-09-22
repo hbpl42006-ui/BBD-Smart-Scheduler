@@ -515,3 +515,32 @@ def test_provider_failure_during_real_publish_does_not_rollback_lifecycle(client
         _publish_through_lifecycle(client,data,new,django_capture_on_commit_callbacks)
     old.refresh_from_db();new.refresh_from_db();assert old.status=='ARCHIVED' and new.status=='PUBLISHED'
     notification=_official_notifications(data['faculty'].user,'TIMETABLE_UPDATED').get();delivery=NotificationDelivery.objects.get(notification=notification,channel='WHATSAPP');assert delivery.status=='FAILED' and delivery.attempts==1
+
+def test_reports_are_derived_from_selected_version_and_filters(client,data):
+    entry=_entry(data['version'],data);ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    query=f'?version={data["version"].pk}'
+    workload=client.get('/api/reports/faculty-workload/'+query);rooms=client.get('/api/reports/room-utilization/'+query);section=client.get('/api/reports/section-timetable/'+query);allocation=client.get('/api/reports/course-allocation/'+query)
+    assert workload.status_code==rooms.status_code==section.status_code==allocation.status_code==200
+    assert workload.data[0]['total_scheduled_periods']==1 and rooms.data[0]['occupied_slots']==1 and section.data[0]['course_code']=='CS101' and allocation.data[0]['scheduled_periods']==1
+
+def test_report_exports_return_csv_and_xlsx(client,data):
+    entry=_entry(data['version'],data);ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty']);params={'version':str(data['version'].pk)}
+    csv_response=client.get('/api/reports/section-timetable/',{**params,'export':'csv'});xlsx_response=client.get('/api/reports/section-timetable/',{**params,'export':'xlsx'})
+    assert csv_response.status_code==xlsx_response.status_code==200 and csv_response['Content-Type'].startswith('text/csv') and xlsx_response['Content-Type'].startswith('application/vnd.openxmlformats') and b'CS101' in csv_response.content and len(xlsx_response.content)>100
+
+def test_faculty_report_isolation_and_analytics(client,data):
+    entry=_entry(data['version'],data);ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty']);other=User.objects.create_user('report-other@test.local','Pass12345!',role=Role.FACULTY);other_faculty=Faculty.objects.create(user=other,employee_code='F002',initials='OF',department=data['department'])
+    client.force_authenticate(data['faculty'].user);published_only=client.get(f'/api/reports/faculty-timetable/?version={data["version"].pk}&faculty={data["faculty"].pk}');assert published_only.status_code==200 and published_only.data==[];assert client.get(f'/api/reports/faculty-timetable/?version={data["version"].pk}&faculty={other_faculty.pk}').status_code==200 and client.get(f'/api/reports/faculty-workload/?version={data["version"].pk}&faculty={other_faculty.pk}').status_code==403
+    assert client.get('/api/reports/analytics/').status_code==403
+
+def test_report_conflicts_reuses_validator_and_version_activity_is_readable(client,data):
+    entry=_entry(data['version'],data);ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty']);other=_entry(data['version'],data,course_offering=data['offering'],start_slot=data['slots'][1]);ScheduleEntryFaculty.objects.create(schedule_entry=other,faculty=data['faculty'])
+    assert client.get(f'/api/reports/conflicts/?version={data["version"].pk}').status_code==200 and client.get('/api/reports/version-activity/').status_code==200
+
+def test_report_filter_health_and_openapi_contract(client,data):
+    entry=_entry(data['version'],data);ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    response=client.get(f'/api/reports/section-timetable/?version={data["version"].pk}&section={data["section"].pk}')
+    assert response.status_code==200 and len(response.data)==1 and response.data[0]['section_id']==str(data['section'].pk)
+    assert client.get('/api/health/').status_code==200 and client.get('/api/health/').data=={'status':'ok'}
+    schema=client.get('/api/schema/'); assert schema.status_code==200
+    paths=schema.data['paths']; assert '/api/reports/section-timetable/' in paths and '/api/reports/analytics/' in paths and '/api/health/' in paths

@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import urlparse
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -82,6 +83,10 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+if os.environ.get('DATABASE_URL'):
+    parsed_db = urlparse(os.environ['DATABASE_URL'])
+    if parsed_db.scheme.startswith('postgres'):
+        DATABASES['default'] = {'ENGINE':'django.db.backends.postgresql','NAME':parsed_db.path.lstrip('/'),'USER':parsed_db.username or '','PASSWORD':parsed_db.password or '','HOST':parsed_db.hostname or '','PORT':str(parsed_db.port or 5432)}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -132,6 +137,7 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()]
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
@@ -153,3 +159,10 @@ WHATSAPP_TEMPLATE_TIMETABLE_REJECTED = os.environ.get('WHATSAPP_TEMPLATE_TIMETAB
 WHATSAPP_TEMPLATE_TIMETABLE_REVIEW = os.environ.get('WHATSAPP_TEMPLATE_TIMETABLE_REVIEW', '')
 WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', '')
 WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')
+
+SECURE_SSL_REDIRECT = os.environ.get('DJANGO_SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+SESSION_COOKIE_SECURE = os.environ.get('DJANGO_SESSION_COOKIE_SECURE', 'False').lower() == 'true'
+CSRF_COOKIE_SECURE = os.environ.get('DJANGO_CSRF_COOKIE_SECURE', 'False').lower() == 'true'
+SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '0'))
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if os.environ.get('DJANGO_TRUST_PROXY_SSL', 'False').lower() == 'true' else None
+LOGGING = {'version':1,'disable_existing_loggers':False,'handlers':{'console':{'class':'logging.StreamHandler'}},'loggers':{'django':{'handlers':['console'],'level':os.environ.get('DJANGO_LOG_LEVEL','INFO')}}}

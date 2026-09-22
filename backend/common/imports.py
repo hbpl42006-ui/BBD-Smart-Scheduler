@@ -15,15 +15,23 @@ def rows_from_upload(upload):
         return [dict(zip(values[0],r)) for r in values[1:] if any(v is not None for v in r)]
     return list(csv.DictReader(io.StringIO(raw.decode('utf-8-sig'))))
 def validate(kind, rows):
-    errors=[]; valid=[]
+    errors=[]; valid=[]; seen=set()
     for n, source in enumerate(rows,2):
+        if kind=='rooms':
+            headers={'room no.':'code','room no':'code','code':'code','building':'building','floor':'floor','capacity':'capacity','room type':'room_type','room_type':'room_type','active':'active'}
+            source={headers.get(str(key).strip().lower(),str(key).strip()): value for key,value in source.items()}
         row={str(k).strip():('' if v is None else str(v).strip()) for k,v in source.items()}
         missing=[f for f in SPECS[kind] if f not in row]
         if missing:
             errors.extend({'row':n,'field':f,'message':'Missing required column'} for f in missing); continue
         try:
             if kind=='rooms':
-                if Room.objects.filter(code=row['code']).exists(): raise ValueError('Room code already exists')
+                if not row['code']: raise ValueError('Room No. is required')
+                room_types={label.lower():value for value,label in Room.RoomType.choices}; normalized=room_types.get(row['room_type'].lower()) or (row['room_type'].upper() if row['room_type'].upper() in dict(Room.RoomType.choices) else None)
+                if not normalized: raise ValueError('Invalid room type')
+                row['room_type']=normalized
+                if row['code'] in seen or Room.objects.filter(code=row['code']).exists(): row['_skip']='Room No. already exists'
+                seen.add(row['code'])
                 if int(row['capacity'])<=0: raise ValueError('Capacity must be positive')
             elif kind=='courses' and Course.objects.filter(code=row['code']).exists(): raise ValueError('Course code already exists')
             elif kind=='faculty': row['_department_id']=str(Department.objects.get(code=row['department_code']).pk)
@@ -38,10 +46,12 @@ def commit(kind, rows):
     valid,errors=validate(kind,rows)
     if errors: raise ValueError(errors)
     for row in valid:
-        if kind=='rooms': Room.objects.create(code=row['code'],building=row['building'],floor=row['floor'],capacity=int(row['capacity']),room_type=row['room_type'],active=row['active'].lower()!='false')
+        if kind=='rooms':
+            if row.get('_skip'): continue
+            Room.objects.create(code=row['code'],building=row['building'],floor=row['floor'],capacity=int(row['capacity']),room_type=row['room_type'],active=row['active'].lower()!='false')
         elif kind=='courses': Course.objects.create(code=row['code'],name=row['name'],short_code=row['short_code'],credit=row['credit'])
         elif kind=='faculty':
             user=User.objects.create_user(row['email'],'ChangeMe123!',first_name=row['first_name'],last_name=row['last_name'],role=Role.FACULTY); Faculty.objects.create(user=user,employee_code=row['employee_code'],initials=row['initials'],department_id=row['_department_id'],max_daily_periods=int(row['max_daily_periods']),max_weekly_periods=int(row['max_weekly_periods']))
         elif kind=='sections': Section.objects.create(program_id=row['_program_id'],semester_id=row['_semester_id'],year=int(row['year']),name=row['name'],student_strength=int(row['student_strength']))
         elif kind=='course-offerings': CourseOffering.objects.create(course_id=row['_course_id'],semester_id=row['_semester_id'],section_id=row['_section_id'],weekly_periods=int(row['weekly_periods']),default_class_type=row['default_class_type'],required_block_size=int(row['required_block_size']),room_type_requirement=row['room_type_requirement'])
-    return {'created':len(valid),'updated':0,'skipped':0}
+    return {'created':len([row for row in valid if not row.get('_skip')]),'updated':0,'skipped':len([row for row in valid if row.get('_skip')])}

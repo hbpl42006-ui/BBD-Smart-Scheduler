@@ -1,2 +1,16 @@
-import { ModulePage } from '@/components/ModulePage';
-export default function Page() { return <ModulePage title="Reports" description="Access academic operations and scheduling reports." />; }
+'use client';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { BarChart3, BookOpen, Building2, CalendarDays, ClipboardCheck, GraduationCap, Users, DoorOpen, Activity } from 'lucide-react';
+import { AdminLayout } from '@/components/layout/AdminLayout';
+import { Header } from '@/components/layout/Header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { apiClient } from '@/lib/api/client';
+const reports = [
+  ['Faculty Workload', 'Teaching periods, courses and sections by Faculty.', '/reports/faculty-workload', Users], ['Room Utilization', 'Occupied, free and available room capacity.', '/reports/room-utilization', DoorOpen], ['Section Timetable', 'Published schedule for a selected section.', '/reports/section-timetable', CalendarDays], ['Faculty Timetable', 'Published schedule and workload for Faculty.', '/reports/faculty-timetable', GraduationCap], ['Room Timetable', 'Scheduled use of a room by period.', '/reports/room-timetable', Building2], ['Course Allocation', 'Required versus scheduled course periods.', '/reports/course-allocation', BookOpen], ['Unscheduled Classes', 'Offerings below their configured weekly periods.', '/reports/unscheduled', ClipboardCheck], ['Conflict Report', 'Validation issues from the existing timetable validator.', '/reports/conflicts', Activity], ['Free Rooms', 'Rooms available for a selected day and period.', '/reports/free-rooms', DoorOpen], ['Version Activity', 'Lifecycle and audit activity for timetable versions.', '/reports/version-activity', BarChart3],
+];
+export default function Page() {
+  const [metrics, setMetrics] = useState<Record<string, number>>({}); const [error, setError] = useState('');
+  useEffect(() => { apiClient.get('/reports/analytics/').then(({ data }) => setMetrics(data)).catch(() => setError('Unable to load report metrics.')); }, []);
+  return <AdminLayout><Header title="Reports" /><main className="mx-auto w-full max-w-[1500px] space-y-6 p-5 sm:p-8"><div><h1 className="text-2xl font-semibold text-slate-900">Reports & Analytics</h1><p className="mt-1 text-sm text-slate-500">Explore operational reports derived from timetable and academic data.</p></div>{error && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">{[['Faculty',metrics.total_faculty],['Rooms',metrics.total_rooms],['Sections',metrics.total_sections],['Scheduled classes',metrics.scheduled_classes],['Room utilization',`${metrics.room_utilization_percentage ?? 0}%`]].map(([label,value]) => <Card key={String(label)}><CardContent className="p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-2xl font-semibold text-slate-900">{value ?? '—'}</p></CardContent></Card>)}</div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{reports.map(([title,description,href,Icon]) => <Link href={href as string} key={title as string}><Card className="h-full transition hover:border-blue-300 hover:shadow-sm"><CardHeader><CardTitle className="flex items-center gap-3 text-base"><span className="rounded-lg bg-blue-50 p-2 text-blue-700"><Icon className="h-5 w-5" /></span>{title as string}</CardTitle></CardHeader><CardContent><p className="text-sm text-slate-500">{description as string}</p></CardContent></Card></Link>)}</div></main></AdminLayout>;
+}

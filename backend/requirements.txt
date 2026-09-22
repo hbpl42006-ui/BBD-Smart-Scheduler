@@ -7,5 +7,6 @@ openpyxl
 drf-spectacular
 ortools>=9.10,<10
 python-dotenv
+psycopg[binary]>=3.1
 pytest
 pytest-django

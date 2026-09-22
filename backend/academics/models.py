@@ -56,6 +56,9 @@ class Course(models.Model):
     name = models.CharField(max_length=255)
     credit = models.DecimalField(max_digits=4, decimal_places=1)
     short_code = models.CharField(max_length=20)
+    lecture_hours = models.PositiveIntegerField(default=0)
+    tutorial_hours = models.PositiveIntegerField(default=0)
+    practical_hours = models.PositiveIntegerField(default=0)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

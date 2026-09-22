@@ -33,6 +33,18 @@ def test_import_commit(client,user,db):
     auth(client,user); body=b'code,building,floor,capacity,room_type,active\nIMP2,B,1,30,CLASSROOM,true\n'
     upload=SimpleUploadedFile('rooms.csv',body,content_type='text/csv'); assert client.post('/api/imports/rooms/commit/',{'file':upload},format='multipart').status_code==201
     assert Room.objects.filter(code='IMP2').exists()
+
+def test_room_import_supports_user_headers_and_template(client,user,db):
+    auth(client,user); body=b'Room No.,Building,Floor,Capacity,Room Type,Active\n401,Main,4,60,Classroom,true\n402,Main,4,40,Computer Lab,true\n'
+    upload=SimpleUploadedFile('rooms.csv',body,content_type='text/csv'); response=client.post('/api/imports/rooms/commit/',{'file':upload},format='multipart')
+    assert response.status_code==201 and Room.objects.filter(code='401',room_type='CLASSROOM').exists() and Room.objects.filter(code='402',room_type='COMPUTER_LAB').exists()
+    template=client.get('/api/imports/rooms/template/'); assert template.status_code==200 and template['Content-Type'].startswith('application/vnd.openxmlformats')
+
+def test_room_import_skips_duplicate_without_creating_another_record(client,user,db):
+    Room.objects.create(code='401',building='Main',floor='4',capacity=60,room_type='CLASSROOM')
+    auth(client,user); body=b'Room No.,Building,Floor,Capacity,Room Type,Active\n401,Main,4,60,Classroom,true\n403,Main,4,60,Classroom,true\n'
+    upload=SimpleUploadedFile('rooms.csv',body,content_type='text/csv'); response=client.post('/api/imports/rooms/commit/',{'file':upload},format='multipart')
+    assert response.status_code==201 and response.data['created']==1 and response.data['skipped']==1 and Room.objects.filter(code='401').count()==1
 def test_schema(client): assert client.get('/api/schema/').status_code==200
 
 def test_faculty_serializer_handles_linked_and_unlinked_faculty(db):

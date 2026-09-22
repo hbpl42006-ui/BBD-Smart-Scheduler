@@ -3,6 +3,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.http import HttpResponse
+from openpyxl import Workbook
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts.models import User
@@ -14,6 +16,7 @@ from common.models import TimeSlotTemplate, TimeSlot
 from common.permissions import RolePermission, WRITE_ROLES
 from common.serializers import *
 from common.imports import rows_from_upload, validate, commit, SPECS
+from common.import_services import faculty_import as faculty_import_rows, course_import as course_import_rows, mapping_import
 
 class LoginSerializer(TokenObtainPairSerializer):
     username_field = 'email'
@@ -85,8 +88,56 @@ def import_data(request, action, kind=None):
     if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
     try: rows=rows_from_upload(upload); valid,errors=validate(kind,rows)
     except Exception as exc: return Response({'detail':str(exc)},status=400)
-    if action=='preview': return Response({'valid':not errors,'total_rows':len(rows),'valid_rows':len(valid),'invalid_rows':len(errors),'errors':errors,'rows':valid})
+    if action=='preview':
+        skipped=sum(1 for row in valid if row.get('_skip'))
+        return Response({'valid':not errors,'total_rows':len(rows),'valid_rows':len(valid)-skipped,'invalid_rows':len(errors),'skipped':skipped,'errors':errors,'rows':valid})
     if errors: return Response({'valid':False,'errors':errors},status=400)
     try: result=commit(kind,rows)
     except ValueError as exc: return Response({'valid':False,'errors':exc.args[0]},status=400)
     return Response(result,status=201)
+
+@api_view(['GET'])
+@permission_classes([RolePermission])
+def room_import_template(request):
+    if not (request.user.is_superuser or request.user.role in WRITE_ROLES):
+        return Response({'detail':'You do not have permission to import rooms.'}, status=403)
+    workbook = Workbook(); sheet = workbook.active; sheet.title = 'Rooms'
+    sheet.append(['Room No.', 'Building', 'Floor', 'Capacity', 'Room Type', 'Active'])
+    sheet.append(['401', 'Main', '4', 60, 'Classroom', 'true'])
+    sheet.append(['402', 'Main', '4', 60, 'Classroom', 'true'])
+    from io import BytesIO
+    stream = BytesIO(); workbook.save(stream)
+    return HttpResponse(stream.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition':'attachment; filename="rooms-import-template.xlsx"'})
+
+def _xlsx_template(filename, headers, example):
+    workbook=Workbook(); sheet=workbook.active; sheet.append(headers); sheet.append(example)
+    from io import BytesIO
+    stream=BytesIO(); workbook.save(stream)
+    return HttpResponse(stream.getvalue(),content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{filename}"'})
+
+@api_view(['POST','GET'])
+@permission_classes([RolePermission])
+def faculty_import(request):
+    if request.method=='GET': return _xlsx_template('faculty-import-template.xlsx',['Employee Code','Faculty Name','Department','Email','Max Weekly Load','Active'],['FAC001','Aarav Sharma','Computer Science','',16,'true'])
+    upload=request.FILES.get('file')
+    if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
+    try: return Response(faculty_import_rows(rows_from_upload(upload)),status=201)
+    except Exception: return Response({'detail':'The uploaded file could not be read.'},status=400)
+
+@api_view(['POST','GET'])
+@permission_classes([RolePermission])
+def course_import(request):
+    if request.method=='GET': return _xlsx_template('course-import-template.xlsx',['Course Code','Course Name','Program','Semester','Lecture Hours','Tutorial Hours','Practical Hours'],['CS101','Programming Fundamentals','BTECH-CSE','1',3,1,0])
+    upload=request.FILES.get('file')
+    if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
+    try: return Response(course_import_rows(rows_from_upload(upload)),status=201)
+    except Exception: return Response({'detail':'The uploaded file could not be read.'},status=400)
+
+@api_view(['POST','GET'])
+@permission_classes([RolePermission])
+def faculty_course_mapping_import(request):
+    if request.method=='GET': return _xlsx_template('faculty-course-mapping-template.xlsx',['Employee Code','Course Code','Section','Session','Semester','Faculty Role'],['FAC001','CS101','CS 1A','2026-27','1','PRIMARY'])
+    upload=request.FILES.get('file')
+    if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
+    try: return Response(mapping_import(rows_from_upload(upload)),status=201)
+    except Exception: return Response({'detail':'The uploaded file could not be read.'},status=400)
