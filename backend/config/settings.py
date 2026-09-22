@@ -1,8 +1,14 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+import os
+from pathlib import Path
 from datetime import timedelta
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-default-key-for-dev')
 
@@ -126,3 +132,24 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BBD Smart Scheduler <no-reply@localhost>')
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+WHATSAPP_ENABLED = os.environ.get('WHATSAPP_ENABLED', 'false').lower() == 'true'
+WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
+WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
+WHATSAPP_BUSINESS_ACCOUNT_ID = os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '')
+WHATSAPP_GRAPH_API_VERSION = os.environ.get('WHATSAPP_GRAPH_API_VERSION', 'v20.0')
+WHATSAPP_DEFAULT_LANGUAGE = os.environ.get('WHATSAPP_DEFAULT_LANGUAGE', 'en')
+WHATSAPP_TEMPLATE_TIMETABLE_PUBLISHED = os.environ.get('WHATSAPP_TEMPLATE_TIMETABLE_PUBLISHED', '')
+WHATSAPP_TEMPLATE_TIMETABLE_UPDATED = os.environ.get('WHATSAPP_TEMPLATE_TIMETABLE_UPDATED', '')
+WHATSAPP_TEMPLATE_TIMETABLE_APPROVED = os.environ.get('WHATSAPP_TEMPLATE_TIMETABLE_APPROVED', '')
+WHATSAPP_TEMPLATE_TIMETABLE_REJECTED = os.environ.get('WHATSAPP_TEMPLATE_TIMETABLE_REJECTED', '')
+WHATSAPP_TEMPLATE_TIMETABLE_REVIEW = os.environ.get('WHATSAPP_TEMPLATE_TIMETABLE_REVIEW', '')
+WHATSAPP_WEBHOOK_VERIFY_TOKEN = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN', '')
+WHATSAPP_APP_SECRET = os.environ.get('WHATSAPP_APP_SECRET', '')

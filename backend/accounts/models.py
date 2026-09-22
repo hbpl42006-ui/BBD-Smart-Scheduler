@@ -35,6 +35,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     employee_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
+    whatsapp_number = models.CharField(max_length=20, blank=True, default='')
     role = models.CharField(max_length=50, choices=Role.choices, default=Role.READ_ONLY_VIEWER)
     
     is_active = models.BooleanField(default=True)

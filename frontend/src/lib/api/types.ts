@@ -15,3 +15,4 @@ export interface PaginatedResponse<T = unknown> {
   limit: number;
   success: boolean;
 }
+export interface NotificationItem { id:string; event_type:string; title:string; message:string; action_url:string; metadata:Record<string,unknown>; is_read:boolean; created_at:string; }

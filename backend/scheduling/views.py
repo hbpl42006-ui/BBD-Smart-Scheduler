@@ -8,7 +8,8 @@ from scheduling.serializers import TimetableSerializer,TimetableVersionSerialize
 from scheduling.services.validation import validate_entry,validate_version
 from common.permissions import RolePermission
 from scheduling.services.audit import record
-from accounts.models import Role
+from accounts.models import Role,User
+from notifications.services import notify,notify_published_diff
 from faculty.models import Faculty
 from drf_spectacular.utils import extend_schema, inline_serializer
 from drf_spectacular.types import OpenApiTypes
@@ -72,7 +73,12 @@ class EntryDetail(APIView):
 class ValidateEntry(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request,version_id):
-        version=TimetableVersion.objects.get(pk=version_id); conflicts=validate_entry(version,request.data,request.data.get('exclude_entry_id')); return Response({'valid':not conflicts,'conflicts':conflicts})
+        version=TimetableVersion.objects.get(pk=version_id)
+        # The builder sends the edited ScheduleEntry as `id`. Keep the older
+        # explicit field as a compatibility fallback for existing clients.
+        current_entry_id=request.data.get('id') or request.data.get('exclude_entry_id')
+        conflicts=validate_entry(version,request.data,current_entry_id)
+        return Response({'valid':not conflicts,'conflicts':conflicts})
 class EntryLock(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request,entry_id):
@@ -146,6 +152,7 @@ class VersionLifecycle(APIView):
                 validation=_validation(version)
                 if not validation['valid']: return Response({'detail':'Timetable has blocking conflicts.','validation':validation},400)
                 version.status='IN_REVIEW';version.submitted_by=request.user;version.submitted_at=now;version.save(update_fields=['status','submitted_by','submitted_at','updated_at']);record('TIMETABLE_SUBMITTED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk)
+                reviewers=User.objects.filter(role__in=[Role.HOD_OR_DEAN_APPROVER,Role.ACADEMIC_ADMIN,Role.SUPER_ADMIN],is_active=True).exclude(pk=request.user.pk);notify(event_type='TIMETABLE_AWAITING_REVIEW',recipients=reviewers,title='Timetable awaiting review',message=f'Timetable v{version.version_no} is awaiting your review.',action_url=f'/timetables/{version.timetable_id}/versions',metadata={'version_id':str(version.pk)},actor=request.user)
             elif self.action in ('approve','reject'):
                 if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.HOD_OR_DEAN_APPROVER}): return Response({'detail':'You do not have approval permission.'},403)
                 if version.status!='IN_REVIEW': return Response({'detail':'Only versions in review can be reviewed.'},400)
@@ -153,10 +160,12 @@ class VersionLifecycle(APIView):
                     validation=_validation(version)
                     if not validation['valid']: return Response({'detail':'Timetable has blocking conflicts.','validation':validation},400)
                     version.status='APPROVED';version.approved_by=request.user;version.approved_at=now;version.save(update_fields=['status','approved_by','approved_at','updated_at']);record('TIMETABLE_APPROVED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk)
+                    coordinators=User.objects.filter(role=Role.TIMETABLE_COORDINATOR,is_active=True);notify(event_type='TIMETABLE_APPROVED',recipients=coordinators,title='BBD Smart Scheduler - Timetable Approved',message=f'Timetable v{version.version_no} has been approved.',action_url=f'/timetables/{version.timetable_id}/versions',metadata={'version_id':str(version.pk)},actor=request.user)
                 else:
                     reason=str(request.data.get('reason','')).strip()
                     if not reason:return Response({'detail':'A rejection reason is required.'},400)
                     version.status='DRAFT';version.rejected_by=request.user;version.rejected_at=now;version.rejection_reason=reason;version.save(update_fields=['status','rejected_by','rejected_at','rejection_reason','updated_at']);record('TIMETABLE_REJECTED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk,metadata={'reason':reason})
+                    coordinators=User.objects.filter(role=Role.TIMETABLE_COORDINATOR,is_active=True);notify(event_type='TIMETABLE_REJECTED',recipients=coordinators,title='BBD Smart Scheduler - Timetable Rejected',message=f'Timetable v{version.version_no} was rejected. Reason: {reason}',action_url=f'/timetables/{version.timetable_id}/versions',metadata={'version_id':str(version.pk),'reason':reason},actor=request.user)
             elif self.action=='publish':
                 if not _can(request,{Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN}): return Response({'detail':'You do not have publishing permission.'},403)
                 if version.status!='APPROVED': return Response({'detail':'Only approved versions can be published.'},400)
@@ -167,6 +176,7 @@ class VersionLifecycle(APIView):
                     archived.status='ARCHIVED'; archived.save(update_fields=['status','updated_at'])
                     record('TIMETABLE_ARCHIVED',request.user,timetable=version.timetable,version=archived,entity_type='TimetableVersion',entity_id=archived.pk,metadata={'superseded_by_version_id':str(version.pk),'superseded_by_version_number':version.version_no})
                 version.status='PUBLISHED';version.published_by=request.user;version.published_at=now;version.save(update_fields=['status','published_by','published_at','updated_at']);record('TIMETABLE_PUBLISHED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk)
+                transaction.on_commit(lambda old=previous_published[0] if previous_published else None,new=version,actor=request.user: notify_published_diff(old,new,actor))
             else:return Response({'detail':'Unsupported lifecycle action.'},400)
         return Response(TimetableVersionSerializer(version).data)
 

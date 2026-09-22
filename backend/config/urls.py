@@ -23,6 +23,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from common.api import *
 from scheduling.views import TimetableList,VersionList,EntryList,EntryDetail,ValidateVersion,ValidateEntry,EntryLock,EntryUnlock,SectionTimetable,FacultyTimetable,MyFacultyTimetable,RoomAllocation,AvailableRooms,VersionLifecycle,VersionAudit,ApprovalQueue,VersionReview,CreateDraft,VersionCompare
 from scheduling.generation_views import GenerationPreflight,GenerationRunList,GenerationRunDetail,GenerationApply
+from notifications.views import NotificationList,NotificationUnreadCount,NotificationRead,NotificationMarkAllRead,NotificationPreferences,WhatsAppWebhook
 
 router = DefaultRouter()
 for prefix, cls in [('institutions',InstitutionViewSet),('departments',DepartmentViewSet),('programs',ProgramViewSet),('academic-sessions',AcademicSessionViewSet),('semesters',SemesterViewSet),('sections',SectionViewSet),('courses',CourseViewSet),('course-offerings',CourseOfferingViewSet),('faculty',FacultyViewSet),('faculty-availability',FacultyAvailabilityViewSet),('rooms',RoomViewSet),('room-availability',RoomAvailabilityViewSet),('time-slot-templates',TimeSlotTemplateViewSet),('time-slots',TimeSlotViewSet)]: router.register(prefix, cls)
@@ -36,3 +37,4 @@ urlpatterns += [path('api/versions/<uuid:version_id>/submit-for-approval/',Versi
 urlpatterns += [path('api/timetable-approvals/', ApprovalQueue.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/review/', VersionReview.as_view()),path('api/versions/<uuid:version_id>/history/', VersionAudit.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/create-draft/', CreateDraft.as_view()),path('api/versions/compare/', VersionCompare.as_view())]
+urlpatterns += [path('api/notifications/', NotificationList.as_view()),path('api/notifications/unread-count/', NotificationUnreadCount.as_view()),path('api/notifications/<uuid:notification_id>/read/', NotificationRead.as_view()),path('api/notifications/mark-all-read/', NotificationMarkAllRead.as_view()),path('api/notifications/preferences/',NotificationPreferences.as_view()),path('api/notifications/whatsapp/webhook/',WhatsAppWebhook.as_view())]
