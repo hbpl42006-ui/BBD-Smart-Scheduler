@@ -1,17 +1,15 @@
 'use client';
 /* eslint-disable react-hooks/set-state-in-effect */
 import {useEffect,useMemo,useState} from 'react';
-import {apiClient} from '@/lib/api/client';
 import {Card,CardContent,CardHeader,CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
-import {GenerationApplyError,GeneratedEntry,GenerationRun,TimeSlot,schedulingApi} from '@/lib/api/scheduling';
+import {GenerationApplyError,GeneratedEntry,GenerationRun,TimeSlot,schedulingApi,listAll} from '@/lib/api/scheduling';
 import {GenerationValidationPanel} from '@/components/GenerationValidationPanel';
 type Person={id:string;name?:string;initials?:string;employee_code?:string};
 type Lookup={id:string;code?:string;name?:string;course_name?:string;course_code?:string;course?:{id?:string;code?:string;name?:string}};
 type Section={id:string;name?:string;label?:string;program_name?:string;semester_name?:string};
 const days=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const human=(x?:string)=>x?.replaceAll('_',' ').toLowerCase().replace(/(^| )\w/g,c=>c.toUpperCase())??'Unknown';
-const unwrap=<T,>(data:T[]|{results?:T[];entries?:T[]})=>Array.isArray(data)?data:data.results??data.entries??[];
 const personName=(p?:Person)=>p?.name??([p?.initials,p?.employee_code].filter(Boolean).join(' - ')||'Faculty unavailable');
 const courseLabel=(o?:Lookup)=>o?(`${o.course_code??o.code??o.course?.code??'Unknown course'} - ${o.course_name??o.name??o.course?.name??'Unknown course'}`):'Unknown course';
 export function GenerationPreview({run,slots,faculty,sections,onApply,applied,onAppliedVersion}:{run:GenerationRun;slots:TimeSlot[];faculty:Person[];sections:Section[];onApply:()=>void;applied:string;onAppliedVersion?:()=>void}){
@@ -19,7 +17,7 @@ export function GenerationPreview({run,slots,faculty,sections,onApply,applied,on
  const [confirming,setConfirming]=useState(false),[applying,setApplying]=useState(false),[applyError,setApplyError]=useState<GenerationApplyError>(),[appliedVersion,setAppliedVersion]=useState<string>();
  const apply=async()=>{if(applying||applied||run.applied_version||appliedVersion)return;setApplying(true);setApplyError(undefined);try{const result=await schedulingApi.applyGeneration(run.id);setAppliedVersion(String(result.version_no));onAppliedVersion?.();setConfirming(false)}catch(error){const response=(error as {response?:{data?:GenerationApplyError}}).response?.data;setApplyError(response??{code:'APPLY_REQUEST_FAILED',message:'The generated timetable could not be applied.'})}finally{setApplying(false)}};
  const [offerings,setOfferings]=useState<Lookup[]>([]),[courses,setCourses]=useState<Lookup[]>([]),[loadedFaculty,setLoadedFaculty]=useState<Person[]>(faculty),[loadedSections,setLoadedSections]=useState<Section[]>(sections),[loadedSlots,setLoadedSlots]=useState<TimeSlot[]>(slots),[rooms,setRooms]=useState<Lookup[]>([]),[loading,setLoading]=useState(true);
- useEffect(()=>{let live=true;setLoading(true);Promise.all([apiClient.get<Lookup[]|{results:Lookup[]}>('/course-offerings/'),apiClient.get<Lookup[]|{results:Lookup[]}>('/courses/'),apiClient.get<Person[]|{results:Person[]}>('/faculty/'),apiClient.get<Lookup[]|{results:Lookup[]}>('/rooms/'),apiClient.get<Section[]|{results:Section[]}>('/sections/'),apiClient.get<TimeSlot[]|{results:TimeSlot[]}>('/time-slots/')]).then(([o,c,f,r,s,t])=>{if(!live)return;setOfferings(unwrap(o.data));setCourses(unwrap(c.data));setLoadedFaculty(faculty.length?faculty:unwrap(f.data));setRooms(unwrap(r.data));setLoadedSections(sections.length?sections:unwrap(s.data));setLoadedSlots(slots.length?slots:unwrap(t.data));}).catch(()=>undefined).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[faculty,sections,slots]);
+ useEffect(()=>{let live=true;setLoading(true);Promise.all([listAll<Lookup>('/course-offerings/'),listAll<Lookup>('/courses/'),listAll<Person>('/faculty/'),listAll<Lookup>('/rooms/'),listAll<Section>('/sections/'),listAll<TimeSlot>('/time-slots/')]).then(([o,c,f,r,s,t])=>{if(!live)return;setOfferings(o);setCourses(c);setLoadedFaculty(faculty.length?faculty:f);setRooms(r);setLoadedSections(sections.length?sections:s);setLoadedSlots(slots.length?slots:t);}).catch(()=>undefined).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[faculty,sections,slots]);
  const entries=run.result?.entries??[];const ids=[...new Set(entries.map(x=>x.section_id).filter((x):x is string=>!!x))];const available=ids.length?ids:loadedSections.map(x=>x.id);const [active,setActive]=useState(available[0]??'');
  useEffect(()=>{if(!active&&available[0])setActive(available[0])},[active,available]);
  const people=useMemo(()=>new Map(loadedFaculty.map(x=>[x.id,x])),[loadedFaculty]);const offeringMap=useMemo(()=>{const m=new Map(offerings.map(x=>[x.id,x]));courses.forEach(c=>m.set(c.id,c));return m},[offerings,courses]);const roomMap=useMemo(()=>new Map(rooms.map(x=>[x.id,x])),[rooms]);const visible=entries.filter(x=>!active||x.section_id===active);const byCell=new Map(visible.map(x=>[`${x.weekday}:${x.start_slot_id}`,x]));const covered=new Set<string>();

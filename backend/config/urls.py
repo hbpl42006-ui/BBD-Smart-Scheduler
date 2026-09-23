@@ -18,11 +18,12 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from common.api import import_data, room_import_template, faculty_import, course_import, faculty_course_mapping_import
+from common.api import import_data, room_import_template, faculty_import, course_import, faculty_course_mapping_import, faculty_availability_template, course_offering_import, course_offering_import_template
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from common.api import *
 from scheduling.views import TimetableList,VersionList,EntryList,EntryDetail,ValidateVersion,ValidateEntry,EntryLock,EntryUnlock,SectionTimetable,FacultyTimetable,MyFacultyTimetable,RoomAllocation,AvailableRooms,VersionLifecycle,VersionAudit,ApprovalQueue,VersionReview,CreateDraft,VersionCompare
 from scheduling.generation_views import GenerationPreflight,GenerationRunList,GenerationRunDetail,GenerationApply
+from scheduling.import_views import TimetableImportView,TimetableImportTemplateView
 from notifications.views import NotificationList,NotificationUnreadCount,NotificationRead,NotificationMarkAllRead,NotificationPreferences,WhatsAppWebhook
 from reports.views import FacultyWorkloadView,RoomUtilizationView,SectionTimetableReportView,FacultyTimetableReportView,RoomTimetableView,CourseAllocationView,UnscheduledView,ConflictsView,VersionActivityView,AnalyticsView,FreeRoomsView,HealthView
 
@@ -31,11 +32,15 @@ for prefix, cls in [('institutions',InstitutionViewSet),('departments',Departmen
 router.register('room-availabilities', RoomAvailabilityViewSet, basename='roomavailabilities')
 urlpatterns = [path('admin/', admin.site.urls), path('api/schema/', SpectacularAPIView.as_view(), name='schema'), path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'), path('api/auth/login/', LoginView.as_view()), path('api/auth/refresh/', TokenRefreshView.as_view()), path('api/auth/me/', me), path('api/dashboard/summary/', dashboard_summary), path('api/', include(router.urls))]
 urlpatterns += [path('api/imports/rooms/template/', room_import_template)]
+urlpatterns += [path('api/imports/course-offerings/template/', course_offering_import_template),path('api/imports/course-offerings/<str:action>/', course_offering_import)]
 urlpatterns += [path('api/faculty/import/', faculty_import),path('api/faculty/import-template/', faculty_import),path('api/courses/import/', course_import),path('api/courses/import-template/', course_import),path('api/faculty-course-mappings/import/', faculty_course_mapping_import),path('api/faculty-course-mappings/import-template/', faculty_course_mapping_import)]
 for _kind in ('faculty','courses','course-offerings','sections','rooms'):
     urlpatterns += [path(f'api/imports/{_kind}/<str:action>/', import_data)]
+urlpatterns += [path('api/imports/faculty-availability/template/', faculty_availability_template)]
+urlpatterns += [path('api/imports/faculty-availability/<str:action>/', import_data)]
 urlpatterns += [path('api/me/faculty-timetable/',MyFacultyTimetable.as_view()),path('api/timetables/',TimetableList.as_view()),path('api/timetables/<uuid:timetable_id>/versions/',VersionList.as_view()),path('api/versions/<uuid:version_id>/entries/',EntryList.as_view()),path('api/versions/<uuid:version_id>/entries/<uuid:entry_id>/',EntryDetail.as_view()),path('api/versions/<uuid:version_id>/validate/',ValidateVersion.as_view()),path('api/versions/<uuid:version_id>/validate-entry/',ValidateEntry.as_view()),path('api/versions/<uuid:version_id>/section-timetable/',SectionTimetable.as_view()),path('api/versions/<uuid:version_id>/faculty-timetable/',FacultyTimetable.as_view()),path('api/versions/<uuid:version_id>/room-allocation/',RoomAllocation.as_view()),path('api/versions/<uuid:version_id>/available-rooms/',AvailableRooms.as_view()),path('api/entries/<uuid:entry_id>/lock/',EntryLock.as_view()),path('api/entries/<uuid:entry_id>/unlock/',EntryUnlock.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/generation-preflight/',GenerationPreflight.as_view()),path('api/versions/<uuid:version_id>/generation-runs/',GenerationRunList.as_view()),path('api/generation-runs/<uuid:run_id>/',GenerationRunDetail.as_view()),path('api/generation-runs/<uuid:run_id>/apply/',GenerationApply.as_view())]
+urlpatterns += [path('api/versions/<uuid:version_id>/imports/timetable/template/',TimetableImportTemplateView.as_view()),path('api/versions/<uuid:version_id>/imports/timetable/<str:action>/',TimetableImportView.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/submit-for-approval/',VersionLifecycle.as_view(action='submit')),path('api/versions/<uuid:version_id>/approve/',VersionLifecycle.as_view(action='approve')),path('api/versions/<uuid:version_id>/reject/',VersionLifecycle.as_view(action='reject')),path('api/versions/<uuid:version_id>/publish/',VersionLifecycle.as_view(action='publish')),path('api/versions/<uuid:version_id>/audit/',VersionAudit.as_view())]
 urlpatterns += [path('api/timetable-approvals/', ApprovalQueue.as_view())]
 urlpatterns += [path('api/versions/<uuid:version_id>/review/', VersionReview.as_view()),path('api/versions/<uuid:version_id>/history/', VersionAudit.as_view())]

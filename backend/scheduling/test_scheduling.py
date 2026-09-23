@@ -1,17 +1,21 @@
 import pytest
+from io import BytesIO
 from datetime import date,time
 from unittest.mock import patch
+from openpyxl import Workbook
 from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
 from accounts.models import User,Role
 from institutions.models import Institution,Department,Program
 from academics.models import AcademicSession,Semester,Section,Course,CourseOffering
-from faculty.models import Faculty,FacultyAvailability
+from faculty.models import Faculty,FacultyAvailability,CourseOfferingFaculty
 from rooms.models import Room,RoomAvailability
 from common.models import TimeSlotTemplate,TimeSlot
 from scheduling.models import Timetable,TimetableVersion,ScheduleEntry,ScheduleEntryFaculty
 from audit.models import AuditEvent
 from scheduling.solver.engine import Requirement,FacultyAssignment,resolve_slots,build_requirements,build_candidates
 from scheduling.solver.objective import weights,internal_gap_count
+from scheduling.services.validation import validate_version
 from notifications.services import publish_diff,notify_published_diff
 from notifications.models import Notification,NotificationDelivery,NotificationPreference
 
@@ -48,6 +52,21 @@ def test_validate_entry_does_not_persist(client,data):
     r=client.post(f"/api/versions/{data['version'].pk}/validate-entry/",payload(data),format='json');assert r.data['valid'] is True;assert not ScheduleEntry.objects.exists()
 def test_full_validation_completion(client,data):
     r=client.post(f"/api/versions/{data['version'].pk}/validate/",{},format='json');assert r.status_code==200;assert r.data['course_completion'][0]['remaining']==3
+
+def test_validation_course_completion_excludes_inactive_offerings(client,data):
+    active=validate_version(data['version'])
+    assert active['course_completion'][0]['required']==3 and active['course_completion'][0]['remaining']==3
+    data['offering'].active=False;data['offering'].save(update_fields=['active'])
+    inactive=validate_version(data['version'])
+    assert inactive['course_completion']==[] and inactive['valid'] is True
+    response=client.post(f"/api/versions/{data['version'].pk}/validate/",{},format='json')
+    assert response.status_code==200 and response.data['course_completion']==[]
+
+def test_generation_ignores_inactive_offerings(data):
+    from scheduling.solver.service import preflight_generation
+    data['offering'].active=False;data['offering'].save(update_fields=['active'])
+    result=preflight_generation(data['version'],{'mode':'FILL_GAPS','section_ids':[str(data['section'].pk)]})
+    assert result['valid'] is True and result['requirements']==[]
 def test_lock_blocks_update_and_unlock_allows(client,data):
     e=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=True);r=client.patch(f"/api/versions/{data['version'].pk}/entries/{e.pk}/",{'note':'x'},format='json');assert r.status_code==409;client.post(f"/api/entries/{e.pk}/unlock/");assert client.patch(f"/api/versions/{data['version'].pk}/entries/{e.pk}/",{'note':'x'},format='json').status_code==200
 def test_projection_and_rooms(client,data):
@@ -544,3 +563,45 @@ def test_report_filter_health_and_openapi_contract(client,data):
     assert client.get('/api/health/').status_code==200 and client.get('/api/health/').data=={'status':'ok'}
     schema=client.get('/api/schema/'); assert schema.status_code==200
     paths=schema.data['paths']; assert '/api/reports/section-timetable/' in paths and '/api/reports/analytics/' in paths and '/api/health/' in paths
+
+def test_timetable_import_preview_is_read_only_and_template_available(client,data):
+    client.force_authenticate(data['version'].created_by)
+    from faculty.models import CourseOfferingFaculty
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    body=b'Section,Course Code,Employee Code,Day,Time Slot,Room No.\nA,CS101,F001,Monday,9:00-10:00,R101\n'
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('timetable.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==200 and response.data['valid']==1 and data['version'].entries.count()==0
+    template=client.get(f'/api/versions/{data["version"].pk}/imports/timetable/template/'); assert template.status_code==200 and template['Content-Type'].startswith('application/vnd.openxmlformats')
+
+def test_timetable_import_xlsx_commit_groups_faculty_and_audits(client,data):
+    from faculty.models import CourseOfferingFaculty
+    second=Faculty.objects.create(user=None,employee_code='F002',initials='UF',department=data['department'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=second)
+    workbook=Workbook(); sheet=workbook.active; sheet.append(['Section','Course Code','Employee Code','Day','Time Slot','Room No.','Faculty Role']); sheet.append(['A','CS101','F001','Monday','9:00-10:00','R101','PRIMARY']); sheet.append(['A','CS101','F002','Monday','9:00-10:00','R101','CO_FACULTY']); stream=BytesIO(); workbook.save(stream); stream.seek(0)
+    upload=SimpleUploadedFile('timetable.xlsx',stream.getvalue(),content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    preview=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':upload},format='multipart')
+    assert preview.status_code==200 and preview.data['valid']==2 and not data['version'].entries.exists()
+    stream.seek(0); upload=SimpleUploadedFile('timetable.xlsx',stream.getvalue(),content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/commit/',{'file':upload},format='multipart')
+    assert response.status_code==201 and response.data['entries_created']==1 and response.data['faculty_assignments_created']==2
+    assert data['version'].entries.count()==1 and data['version'].entries.first().faculty_assignments.count()==2
+    assert AuditEvent.objects.filter(event_type='TIMETABLE_IMPORTED').exists()
+
+def test_timetable_import_rejects_malformed_upload_without_server_error(client,data):
+    upload=SimpleUploadedFile('timetable.csv',b'not,a,valid,header\n',content_type='text/csv')
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':upload},format='multipart')
+    assert response.status_code==200 and response.data['invalid'] == 1 and not data['version'].entries.exists()
+
+def test_course_offering_import_preview_and_commit_creates_mapping_and_preferred_room(client,data):
+    body=b'Session,Semester,Course Code,Section,Weekly Periods,Employee Code,Room No.\n2027-28,Odd,CS101,A,3,F001,R101\n'
+    response=client.post('/api/imports/course-offerings/preview/',{'file':SimpleUploadedFile('offerings.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==200 and response.data['valid']==1 and not CourseOfferingFaculty.objects.exists()
+    response=client.post('/api/imports/course-offerings/commit/',{'file':SimpleUploadedFile('offerings.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==201 and response.data['offerings_created']==0 and response.data['faculty_assignments_created']==1
+    offering=data['offering']; offering.refresh_from_db(); assert offering.preferred_room_id==data['room'].pk and offering.faculties.filter(faculty=data['faculty']).exists()
+
+def test_course_offering_import_rejects_missing_master_data_and_preserves_exact_employee_code(client,data):
+    body=b'Session,Semester,Course Code,Section,Weekly Periods,Employee Code,Room No.\n2027-28,Odd,CS101,A,3,FAC001,R101\n'
+    response=client.post('/api/imports/course-offerings/preview/',{'file':SimpleUploadedFile('offerings.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==200 and response.data['invalid']==1 and 'not found' in response.data['errors'][0]['message']

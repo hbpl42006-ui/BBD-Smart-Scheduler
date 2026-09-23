@@ -16,7 +16,8 @@ from common.models import TimeSlotTemplate, TimeSlot
 from common.permissions import RolePermission, WRITE_ROLES
 from common.serializers import *
 from common.imports import rows_from_upload, validate, commit, SPECS
-from common.import_services import faculty_import as faculty_import_rows, course_import as course_import_rows, mapping_import
+from common.import_services import faculty_import as faculty_import_rows, course_import as course_import_rows, mapping_import, section_import, availability_import
+from common.course_offering_import import parse as parse_course_offerings, commit as commit_course_offerings, template as course_offering_template
 
 class LoginSerializer(TokenObtainPairSerializer):
     username_field = 'email'
@@ -88,6 +89,17 @@ def import_data(request, action, kind=None):
     if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
     try: rows=rows_from_upload(upload); valid,errors=validate(kind,rows)
     except Exception as exc: return Response({'detail':str(exc)},status=400)
+    if kind=='faculty':
+        try: return Response(faculty_import_rows(rows,commit=action=='commit'), status=201 if action=='commit' else 200)
+        except Exception: return Response({'detail':'The uploaded Faculty file could not be processed.'},status=400)
+    if kind=='sections':
+        try:
+            result=section_import(rows,commit=action=='commit'); result.update({'total_rows':len(rows),'valid_rows':result['created'],'invalid_rows':result['failed']}); return Response(result,status=201 if action=='commit' else 200)
+        except Exception: return Response({'detail':'The uploaded Section file could not be processed.'},status=400)
+    if kind=='faculty-availability':
+        try:
+            result=availability_import(rows,commit=action=='commit'); result.update({'total_rows':len(rows),'valid_rows':len(rows)-result['failed'],'invalid_rows':result['failed']}); return Response(result,status=201 if action=='commit' else 200)
+        except Exception: return Response({'detail':'The uploaded Faculty Availability file could not be processed.'},status=400)
     if action=='preview':
         skipped=sum(1 for row in valid if row.get('_skip'))
         return Response({'valid':not errors,'total_rows':len(rows),'valid_rows':len(valid)-skipped,'invalid_rows':len(errors),'skipped':skipped,'errors':errors,'rows':valid})
@@ -108,6 +120,22 @@ def room_import_template(request):
     from io import BytesIO
     stream = BytesIO(); workbook.save(stream)
     return HttpResponse(stream.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition':'attachment; filename="rooms-import-template.xlsx"'})
+
+@api_view(['POST'])
+@permission_classes([RolePermission])
+def course_offering_import(request, action):
+    upload=request.FILES.get('file')
+    if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
+    try: result, prepared = parse_course_offerings(rows_from_upload(upload))
+    except Exception: return Response({'detail':'The uploaded Course Offerings file could not be read.'},status=400)
+    if action=='preview': return Response(result)
+    if result['invalid']: return Response(result,status=400)
+    return Response(commit_course_offerings(prepared),status=201)
+
+@api_view(['GET'])
+@permission_classes([RolePermission])
+def course_offering_import_template(request):
+    return HttpResponse(course_offering_template(),content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="course-offerings-import-template.xlsx"'})
 
 def _xlsx_template(filename, headers, example):
     workbook=Workbook(); sheet=workbook.active; sheet.append(headers); sheet.append(example)
@@ -141,3 +169,8 @@ def faculty_course_mapping_import(request):
     if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
     try: return Response(mapping_import(rows_from_upload(upload)),status=201)
     except Exception: return Response({'detail':'The uploaded file could not be read.'},status=400)
+
+@api_view(['GET'])
+@permission_classes([RolePermission])
+def faculty_availability_template(request):
+    return _xlsx_template('faculty-availability-template.xlsx',['Employee Code','Weekday','Time Slot','Available','Preference Weight'],['FAC001','Monday','09:00-10:00','Yes',0])
