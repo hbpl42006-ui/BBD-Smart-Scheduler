@@ -2,6 +2,8 @@ import { apiClient } from './client';
 export type Entity = Record<string, unknown> & { id: string };
 export type Page<T> = { count: number; next: string | null; previous: string | null; results: T[] };
 export async function list<T extends Entity>(endpoint: string, params: Record<string, string | number | undefined> = {}) { const { data } = await apiClient.get<Page<T>>(`/${endpoint}/`, { params }); return data; }
+const allCache=new Map<string,Promise<Entity[]>>();
+export async function listAll<T extends Entity>(endpoint: string, params: Record<string, string | number | undefined> = {}) { const key=`${endpoint}?${JSON.stringify(params)}`;const cached=allCache.get(key);if(cached)return cached as Promise<T[]>;const request=(async()=>{const result:T[]=[];let next:string|null=`/${endpoint}/`;let first=true;while(next){const response:{data:Page<T>}=await apiClient.get<Page<T>>(next,first?{params}:undefined);result.push(...response.data.results);next=response.data.next;first=false}return result})();allCache.set(key,request as Promise<Entity[]>);return request; }
 export async function create<T extends Entity>(endpoint: string, payload: Record<string, unknown>) { const { data } = await apiClient.post<T>(`/${endpoint}/`, payload); return data; }
 export async function update<T extends Entity>(endpoint: string, id: string, payload: Record<string, unknown>) { const { data } = await apiClient.patch<T>(`/${endpoint}/${id}/`, payload); return data; }
 export async function deactivate(endpoint: string, id: string) { await apiClient.delete(`/${endpoint}/${id}/`); }

@@ -23,7 +23,7 @@ export type GenerationRun = {id:string;source_version:string;mode:GenerationMode
 export type GenerationApplyResult = {applied_version:string;version_no:number};
 export type GenerationConflict = {code?:string;type?:string;message?:string;metadata?:Record<string,unknown>;severity?:'ERROR'|'WARNING'|string};
 export type GenerationApplyError = {code:string;message?:string;conflicts?:GenerationConflict[];error_count?:number;warning_count?:number};
-export type RoomOption = {id:string;code?:string;building?:string;floor?:string;capacity?:number;room_type?:string};
+export type RoomOption = {id:string;code?:string;building?:string;floor?:string;capacity?:number;room_type?:string;has_projector?:boolean};
 const unwrap = <T,>(data:ListResponse<T>|{entries?:T[]}) => Array.isArray(data) ? data : ('results' in data ? data.results ?? [] : data.entries ?? []);
 const listCache=new Map<string,Promise<unknown>>();
 const listAll = async <T,>(url:string, params?:Record<string,unknown>) => { const key=`${url}?${JSON.stringify(params||{})}`; const cached=listCache.get(key) as Promise<T[]>|undefined; if(cached)return cached; const request=(async()=>{ const items:T[]=[]; let next:string|null=url; let first=true; while(next){ const data:ListResponse<T>=(await apiClient.get<ListResponse<T>>(next,first?{params}:undefined)).data; items.push(...unwrap<T>(data)); next=Array.isArray(data)?null:data.next??null; first=false; } return items; })(); listCache.set(key,request); return request; };
