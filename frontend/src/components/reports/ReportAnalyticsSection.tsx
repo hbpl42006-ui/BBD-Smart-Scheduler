@@ -53,7 +53,7 @@ function roomUtilization(rows: Row[]) {
   return { metrics: [
     { label: 'Total Rooms', value: rows.length }, { label: 'Rooms Used', value: used.length },
     { label: 'Average Utilization', value: `${rows.length ? Math.round(rows.reduce((a, r) => a + numberValue(r.utilization_percentage), 0) / rows.length) : 0}%` },
-    { label: 'Highest Utilized Room', value: used.sort((a, b) => numberValue(b.utilization_percentage) - numberValue(a.utilization_percentage))[0]?.room_no ?? '—' },
+    { label: 'Highest Utilized Room', value: String(used.sort((a, b) => numberValue(b.utilization_percentage) - numberValue(a.utilization_percentage))[0]?.room_no ?? '—') },
   ], charts: [['Room Utilization %', rows.map(row => ({ label: String(row.room_no ?? ''), value: numberValue(row.utilization_percentage), suffix: '%' }))], ['Building-wise utilization', grouped(rows, 'building', 'utilization_percentage')], ['Room Type Utilization', grouped(rows, 'room_type', 'utilization_percentage')]] as [string, Bar[]][] };
 }
 

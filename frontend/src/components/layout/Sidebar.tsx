@@ -34,6 +34,15 @@ import {
 const navItems = [
   { title: 'My Timetable', url: '/my-timetable', icon: CalendarDays },
   {
+    title: 'Faculty Arrangements',
+    url: '/faculty-arrangements',
+    icon: CalendarDays,
+    items: [
+      { title: 'Arrangements', url: '/faculty-arrangements' },
+      { title: 'Faculty Availability', url: '/faculty-arrangements/availability' },
+    ],
+  },
+  {
     title: 'Dashboard',
     url: '/dashboard',
     icon: LayoutDashboard,
