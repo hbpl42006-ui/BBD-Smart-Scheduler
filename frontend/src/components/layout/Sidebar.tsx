@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { me } from '@/lib/api/auth';
 import type { Role } from '@/lib/permissions';
@@ -64,7 +65,7 @@ export function AppSidebar() {
     <Sidebar className="no-print">
       <SidebarHeader className="border-b border-slate-200">
         <div className="flex items-center gap-3 px-4 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-700 text-sm font-bold text-white">B</div>
+          <Image src="/logo.png" alt="BBD Smart Scheduler" width={36} height={36} className="h-9 w-9 rounded-lg object-contain" priority />
           <div><div className="font-semibold tracking-tight">BBD Smart Scheduler</div><div className="text-[10px] uppercase tracking-wider text-slate-500">Academic management</div></div>
         </div>
       </SidebarHeader>
