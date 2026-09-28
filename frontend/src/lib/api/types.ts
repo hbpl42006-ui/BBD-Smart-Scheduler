@@ -3,7 +3,7 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   success: boolean;
 }
-export interface AuthenticatedUser { id: string; email: string; first_name: string; last_name: string; role: string; is_active: boolean; is_staff: boolean; faculty_id?: string | null; }
+export interface AuthenticatedUser { id: string; email: string; first_name: string; last_name: string; role: string; is_active: boolean; is_staff: boolean; faculty_id?: string | null; display_name?: string; faculty?: { id: string; name?: string; employee_code?: string | null; initials?: string } | null; }
 export type User = AuthenticatedUser;
 export interface LoginRequest { email:string; password:string; }
 export interface LoginResponse { access:string; refresh:string; user:AuthenticatedUser; }

@@ -8,12 +8,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from accounts.models import User,Role
 from institutions.models import Institution,Department,Program
 from academics.models import AcademicSession,Semester,Section,Course,CourseOffering
-from faculty.models import Faculty,FacultyAvailability,CourseOfferingFaculty
+from faculty.models import Faculty,FacultyAvailability,FacultyArrangement,CourseOfferingFaculty
 from rooms.models import Room,RoomAvailability
 from common.models import TimeSlotTemplate,TimeSlot
 from scheduling.models import Timetable,TimetableVersion,ScheduleEntry,ScheduleEntryFaculty
 from audit.models import AuditEvent
-from scheduling.solver.engine import Requirement,FacultyAssignment,resolve_slots,build_requirements,build_candidates
+from scheduling.solver.engine import Requirement,FacultyAssignment,resolve_slots,build_requirements,build_candidates,fixed_conflicts
+from scheduling.solver.engine import normalize_session_pattern
 from scheduling.solver.objective import weights,internal_gap_count
 from scheduling.services.validation import validate_version
 from notifications.services import publish_diff,notify_published_diff
@@ -67,6 +68,55 @@ def test_generation_ignores_inactive_offerings(data):
     data['offering'].active=False;data['offering'].save(update_fields=['active'])
     result=preflight_generation(data['version'],{'mode':'FILL_GAPS','section_ids':[str(data['section'].pk)]})
     assert result['valid'] is True and result['requirements']==[]
+
+def test_arrangement_assignment_notification_after_commit(data, django_capture_on_commit_callbacks, settings):
+    from notifications.models import Notification, NotificationDelivery
+    from notifications.services import notify_arrangement_after_commit
+    from faculty.models import FacultyArrangement
+    data['version'].status='PUBLISHED'; data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    arrangement=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=data['faculty'],created_by=data['admin'])
+    with django_capture_on_commit_callbacks(execute=True): notify_arrangement_after_commit(arrangement,'ASSIGNED',data['admin'])
+    notification=Notification.objects.get(recipient=data['faculty'].user)
+    assert notification.title=='New Arrangement Class Assigned' and notification.action_url=='/faculty-arrangements'
+    assert 'CS101' in notification.message and 'R101' in notification.message and 'Test Faculty' in notification.message
+    assert NotificationDelivery.objects.filter(notification=notification,channel='EMAIL').exists()
+
+def test_bulk_arrangement_endpoint_notifies_substitute(data, client, django_capture_on_commit_callbacks):
+    from notifications.models import Notification, NotificationDelivery
+    from accounts.models import User
+    from faculty.models import Faculty, FacultyArrangement
+    data['version'].status='PUBLISHED'; data['version'].save(update_fields=['status'])
+    substitute_user=User.objects.create_user('bulk-substitute@test.local','Pass12345!',role=Role.FACULTY,first_name='Bulk',last_name='Substitute')
+    substitute=Faculty.objects.create(user=substitute_user,employee_code='F003',initials='BS',department=data['department'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    payload={'date':'2027-07-05','absent_faculty':str(data['faculty'].pk),'arrangements':[{'schedule_entry':str(entry.pk),'substitute_faculty':str(substitute.pk)}]}
+    with django_capture_on_commit_callbacks(execute=True): response=client.post('/api/faculty-arrangements/bulk/',payload,format='json')
+    assert response.status_code==201
+    assert FacultyArrangement.objects.filter(schedule_entry=entry,substitute_faculty=substitute).count()==1
+    notifications=Notification.objects.filter(recipient=substitute_user,event_type='ARRANGEMENT_ASSIGNED')
+    assert notifications.count()==1 and notifications.first().action_url=='/faculty-arrangements'
+    assert NotificationDelivery.objects.filter(notification=notifications.first(),channel='EMAIL').exists()
+
+def test_arrangement_notification_does_not_duplicate(data, django_capture_on_commit_callbacks):
+    from notifications.models import Notification
+    from notifications.services import notify_arrangement_after_commit
+    from faculty.models import FacultyArrangement
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    arrangement=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=data['faculty'],created_by=data['admin'])
+    with django_capture_on_commit_callbacks(execute=True): notify_arrangement_after_commit(arrangement,'ASSIGNED',data['admin'])
+    assert Notification.objects.filter(recipient=data['faculty'].user,event_type='ARRANGEMENT_ASSIGNED').count()==1
+
+def test_arrangement_notification_without_linked_user_is_safe(data, django_capture_on_commit_callbacks):
+    from notifications.models import Notification
+    from notifications.services import notify_arrangement_after_commit
+    from faculty.models import Faculty, FacultyArrangement
+    unlinked=Faculty.objects.create(user=None,employee_code='F999',initials='UF',department=data['department'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    arrangement=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=unlinked,created_by=data['admin'])
+    with django_capture_on_commit_callbacks(execute=True): notify_arrangement_after_commit(arrangement,'ASSIGNED',data['admin'])
+    assert not Notification.objects.exists()
 def test_lock_blocks_update_and_unlock_allows(client,data):
     e=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=True);r=client.patch(f"/api/versions/{data['version'].pk}/entries/{e.pk}/",{'note':'x'},format='json');assert r.status_code==409;client.post(f"/api/entries/{e.pk}/unlock/");assert client.patch(f"/api/versions/{data['version'].pk}/entries/{e.pk}/",{'note':'x'},format='json').status_code==200
 def test_projection_and_rooms(client,data):
@@ -98,10 +148,62 @@ def test_faculty_can_retrieve_only_own_timetable(client,data):
     client.force_authenticate(data['faculty'].user)
     response=client.get('/api/me/faculty-timetable/')
     assert response.status_code==200
-    assert {item['id'] for item in response.data['entries']}=={str(entry.pk)}
-    assert response.data['faculty']['id']==str(data['faculty'].pk)
+
+def matrix_entry(data, faculty, day=0, slot=None):
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=day,start_slot=slot or data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=faculty)
+    return entry
+
+def test_availability_matrix_missing_row_is_free_and_published_class_is_regular(client,data):
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    response=client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05'})
+    assert response.status_code==200
+    assert response.data['rows'][0]['cells'][0]['status']=='FREE'
+    matrix_entry(data,data['faculty'])
+    response=client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05'})
+    assert response.data['rows'][0]['cells'][0]['status']=='REGULAR_CLASS'
+
+def test_availability_matrix_arrangement_and_unavailable_precedence(client,data):
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    substitute=Faculty.objects.create(employee_code='F003',initials='SU',department=data['department'])
+    entry=matrix_entry(data,data['faculty'])
+    FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=substitute,created_by=data['admin'])
+    FacultyAvailability.objects.create(faculty=substitute,weekday=0,time_slot=data['slots'][0],is_available=False)
+    response=client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05'})
+    rows={row['employee_code']:row for row in response.data['rows']}
+    assert rows['F003']['cells'][0]['status']=='ARRANGEMENT'
+    unavailable=Faculty.objects.create(employee_code='F005',initials='UA',department=data['department'])
+    FacultyAvailability.objects.create(faculty=unavailable,weekday=0,time_slot=data['slots'][0],is_available=False)
+    response=client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05','status':'UNAVAILABLE'})
+    assert any(row['employee_code']=='F005' and any(cell['status']=='UNAVAILABLE' for cell in row['cells']) for row in response.data['rows'])
+
+def test_availability_matrix_rejects_invalid_status_and_excludes_break(client,data):
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    data['slots'][1].is_break=True;data['slots'][1].save(update_fields=['is_break'])
+    assert client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05','status':'BROKEN'}).status_code==400
+    response=client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05'})
+    assert str(data['slots'][1].pk) not in {slot['id'] for slot in response.data['slots']}
+
+def test_availability_matrix_faculty_filter_is_server_scoped(client,data):
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    other_user=User.objects.create_user('matrix-other@test.local','Pass12345!',role=Role.FACULTY)
+    other=Faculty.objects.create(user=other_user,employee_code='F004',initials='OT',department=data['department'])
+    client.force_authenticate(data['faculty'].user)
+    response=client.get('/api/faculty-arrangements/availability-matrix/',{'date':'2027-07-05','faculty':str(other.pk)})
+    assert response.status_code==200 and response.data['rows']==[]
 def test_clone_copies_entries(client,data):
     ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=True);r=client.post(f"/api/timetables/{data['timetable'].pk}/versions/",{'source_version':str(data['version'].pk)},format='json');assert r.status_code==201;assert ScheduleEntry.objects.filter(version_id=r.data['id'],locked=True).exists()
+def test_create_initial_draft_when_timetable_has_no_versions(client,data):
+    data['version'].delete()
+    response=client.post(f"/api/timetables/{data['timetable'].pk}/versions/",{},format='json')
+    assert response.status_code==201
+    assert response.data['version_no']==1 and response.data['status']=='DRAFT'
+    assert not ScheduleEntry.objects.filter(version_id=response.data['id']).exists()
+def test_timetable_detail_returns_not_found_for_deleted_timetable(client,data):
+    timetable_id=data['timetable'].pk
+    data['timetable'].delete()
+    response=client.get(f"/api/timetables/{timetable_id}/")
+    assert response.status_code==404
 def test_read_only_cannot_create(data):
     u=User.objects.create_user('viewer@test.local','Pass12345!',role=Role.READ_ONLY_VIEWER);c=APIClient();c.force_authenticate(u);assert c.post(f"/api/versions/{data['version'].pk}/entries/",payload(data),format='json').status_code==403
 
@@ -271,6 +373,47 @@ def test_solver_rebuild_unlocked_ignores_replaceable_entry(data):
     e=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=False)
     requirements,errors=build_requirements(data['version'],{'mode':'REBUILD_UNLOCKED','section_ids':[str(data['section'].pk)],'offering_rules':[{'course_offering_id':str(data['offering'].pk),'faculty':[{'faculty_id':str(data['faculty'].pk)}]}]})
     assert errors==[] and sum(x.block_length for x in requirements)==data['offering'].weekly_periods
+
+@pytest.mark.parametrize('block', [1, 2])
+def test_fully_satisfied_offering_skips_session_pattern(data, block):
+    data['offering'].weekly_periods=4
+    data['offering'].required_block_size=block
+    data['offering'].save()
+    for index in range(4 // block):
+        ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=index,start_slot=data['slots'][0],room=data['room'],block_length=block,locked=True)
+    statistics={}
+    rules=[{'course_offering_id':str(data['offering'].pk),'session_lengths':[block]*(4//block)}]
+    requirements,errors=build_requirements(data['version'],{'mode':'REBUILD_UNLOCKED','section_ids':[str(data['section'].pk)],'offering_rules':rules},statistics)
+    assert requirements==[] and errors==[]
+    assert statistics['fully_satisfied_offerings_skipped']==1
+
+def test_fill_gaps_skips_fully_satisfied_offering(data):
+    for index in range(3):
+        ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=index,start_slot=data['slots'][0],room=data['room'])
+    requirements,errors=build_requirements(data['version'],{'mode':'FILL_GAPS','offering_rules':[{'course_offering_id':str(data['offering'].pk),'session_lengths':[1,1,1]}]})
+    assert requirements==[] and errors==[]
+
+def test_partial_locked_block_has_specific_error(data):
+    data['offering'].required_block_size=2
+    data['offering'].weekly_periods=4
+    data['offering'].save()
+    ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=True,block_length=1)
+    _,errors=build_requirements(data['version'],{'mode':'REBUILD_UNLOCKED','section_ids':[str(data['section'].pk)]})
+    assert errors[0]['code']=='PARTIAL_LOCKED_BLOCK'
+
+@pytest.mark.parametrize('locks,expected', [((False,False),0),((True,False),0),((True,True),1)])
+def test_rebuild_only_reports_clashes_between_preserved_entries(data,locks,expected):
+    entries=[]
+    for locked in locks:
+        entries.append(ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=locked))
+        ScheduleEntryFaculty.objects.create(schedule_entry=entries[-1],faculty=data['faculty'])
+    errors=fixed_conflicts(data['version'],'REBUILD_UNLOCKED',[str(data['section'].pk)])
+    room=[error for error in errors if error['code']=='LOCKED_ROOM_CLASH']
+    faculty=[error for error in errors if error['code']=='LOCKED_FACULTY_CLASH']
+    assert len(room)==len(faculty)==expected
+    if expected:
+        assert set(room[0]['entry_ids'])=={str(entry.pk) for entry in entries}
+        assert room[0]['time_slot']==data['slots'][0].label
 
 def test_solver_fixed_demand_excess_diagnostic(data):
     data['offering'].weekly_periods=1;data['offering'].save();ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],block_length=2)
@@ -605,3 +748,32 @@ def test_course_offering_import_rejects_missing_master_data_and_preserves_exact_
     body=b'Session,Semester,Course Code,Section,Weekly Periods,Employee Code,Room No.\n2027-28,Odd,CS101,A,3,FAC001,R101\n'
     response=client.post('/api/imports/course-offerings/preview/',{'file':SimpleUploadedFile('offerings.csv',body,content_type='text/csv')},format='multipart')
     assert response.status_code==200 and response.data['invalid']==1 and 'not found' in response.data['errors'][0]['message']
+def test_my_faculty_timetable_returns_only_current_faculty_published_sections(client,data):
+    from academics.models import Section
+    data['version'].status='PUBLISHED'; data['version'].save(update_fields=['status'])
+    first=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=first,faculty=data['faculty'])
+    other_user=User.objects.create_user('other-faculty@test.local','Pass12345!',role=Role.FACULTY)
+    other_faculty=Faculty.objects.create(user=other_user,employee_code='F002',initials='OF',department=data['department'])
+    other=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=1,start_slot=data['slots'][1],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=other,faculty=other_faculty)
+    draft=TimetableVersion.objects.create(timetable=data['timetable'],version_no=2,created_by=data['admin'])
+    draft_entry=ScheduleEntry.objects.create(version=draft,section=data['section'],course_offering=data['offering'],weekday=2,start_slot=data['slots'][2],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=draft_entry,faculty=data['faculty'])
+    client.force_authenticate(data['faculty'].user)
+    response=client.get('/api/me/faculty-timetable/')
+    assert response.status_code==200
+    assert [section['name'] for section in response.data['sections']]==['A']
+    assert len(response.data['entries'])==1
+
+def test_all_faculties_with_published_assignments_receive_exact_sections(client,data):
+    data['version'].status='PUBLISHED'; data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    faculties=Faculty.objects.filter(user__isnull=False,schedule_assignments__schedule_entry__version__status='PUBLISHED').distinct()
+    for faculty in faculties:
+        expected=set(ScheduleEntryFaculty.objects.filter(faculty=faculty,schedule_entry__version__status='PUBLISHED').values_list('schedule_entry__section_id',flat=True))
+        client.force_authenticate(faculty.user)
+        response=client.get('/api/me/faculty-timetable/')
+        actual={row['id'] for row in response.data.get('sections',[])}
+        assert response.status_code==200 and actual=={str(section_id) for section_id in expected}

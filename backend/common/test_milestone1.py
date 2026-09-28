@@ -22,6 +22,30 @@ def test_read_only_cannot_write(client,db):
     assert client.post('/api/institutions/',{'name':'x','code':'x'},format='json').status_code==403
 def test_seeded_dashboard(client,user):
     auth(client,user); assert client.get('/api/dashboard/summary/').status_code==200
+
+def test_dashboard_faculty_availability_uses_default_available_semantics(client,user,db):
+    auth(client,user)
+    response = client.get('/api/dashboard/summary/')
+    assert response.status_code == 200
+    assert response.data['readiness']['faculty_availability'] is True
+    assert response.data['faculty_availability_status'] == 'DEFAULT'
+    assert response.data['faculty_availability_restrictions'] == 0
+
+def test_dashboard_faculty_availability_reports_configured_restrictions(client,user,db):
+    from common.models import TimeSlot, TimeSlotTemplate
+    from faculty.models import FacultyAvailability
+    institution = Institution.objects.create(name='Availability Institute', code='AVAIL')
+    department = Department.objects.create(institution=institution, name='Availability Department', code='AV')
+    faculty = Faculty.objects.create(employee_code='AV001', initials='AV', department=department)
+    template = TimeSlotTemplate.objects.create(name='Availability Template', institution=institution)
+    from datetime import time
+    slot = TimeSlot.objects.create(template=template, label='09:00-10:00', start_time=time(9), end_time=time(10), order=1)
+    FacultyAvailability.objects.create(faculty=faculty, weekday=0, time_slot=slot, is_available=False)
+    auth(client,user)
+    response = client.get('/api/dashboard/summary/')
+    assert response.data['readiness']['faculty_availability'] is True
+    assert response.data['faculty_availability_status'] == 'CONFIGURED'
+    assert response.data['faculty_availability_restrictions'] == 1
 def test_room_filter(client,user,db):
     Room.objects.create(code='R1',building='B',floor='1',capacity=30,room_type='CLASSROOM'); auth(client,user)
     assert client.get('/api/rooms/?building=B').data['count']==1
@@ -72,3 +96,18 @@ def test_faculty_endpoint_returns_mixed_linked_and_unlinked_records(client, user
     records = response.data['results'] if isinstance(response.data, dict) and 'results' in response.data else response.data
     assert {record['name'] for record in records} >= {'Mira Das', 'NP'}
     assert User.objects.count() == before
+
+def test_room_projector_api_and_import_values(client,user,db):
+    auth(client,user)
+    room=Room.objects.create(code='PJ1',building='Main',floor='1',capacity=40,room_type='CLASSROOM',has_projector=True)
+    response=client.get(f'/api/rooms/{room.pk}/')
+    assert response.status_code==200 and response.data['has_projector'] is True
+    body=b'Room No.,Building,Floor,Capacity,Room Type,Projector,Active\nPJ2,Main,1,40,Classroom,Yes,true\nPJ3,Main,1,40,Classroom,0,true\n'
+    upload=SimpleUploadedFile('projectors.csv',body,content_type='text/csv')
+    assert client.post('/api/imports/rooms/commit/',{'file':upload},format='multipart').status_code==201
+    assert Room.objects.get(code='PJ2').has_projector is True and Room.objects.get(code='PJ3').has_projector is False
+
+def test_room_projector_import_rejects_invalid_value(client,user,db):
+    auth(client,user); body=b'Room No.,Building,Floor,Capacity,Room Type,Projector,Active\nPJ4,Main,1,40,Classroom,maybe,true\n'
+    upload=SimpleUploadedFile('invalid-projector.csv',body,content_type='text/csv'); response=client.post('/api/imports/rooms/preview/',{'file':upload},format='multipart')
+    assert response.status_code==200 and response.data['valid'] is False and 'Projector must be' in response.data['errors'][0]['message']

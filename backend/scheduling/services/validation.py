@@ -11,6 +11,9 @@ def validate_entry(version, data, exclude=None):
     room_id=data.get('room'); room=Room.objects.filter(pk=room_id).first() if room_id else None
     offering=CourseOffering.objects.select_related('course').filter(pk=data.get('course_offering')).first()
     section=Section.objects.filter(pk=data.get('section')).first()
+    expected_delivery='ONLINE' if section and section.delivery_policy=='HYBRID' and weekday!=section.offline_weekday else 'OFFLINE'
+    if expected_delivery=='OFFLINE' and not room: conflicts.append({'type':'ROOM_REQUIRED','severity':'ERROR','message':'A physical room is required for this offline class.'})
+    if expected_delivery=='ONLINE' and room: conflicts.append({'type':'ONLINE_ROOM_NOT_ALLOWED','severity':'ERROR','message':'Online classes must not reserve a physical room.'})
     if room and section and room.capacity<section.student_strength: conflicts.append({'type':'ROOM_CAPACITY_EXCEEDED','severity':'ERROR','message':'Room capacity is insufficient.','room_id':str(room.pk),'required_capacity':section.student_strength,'room_capacity':room.capacity})
     if room and offering and offering.room_type_requirement and room.room_type!=offering.room_type_requirement: conflicts.append({'type':'ROOM_TYPE_MISMATCH','severity':'ERROR','message':'Room type does not match course requirement.','room_id':str(room.pk),'required_room_type':offering.room_type_requirement,'actual_room_type':room.room_type})
     for faculty_id in data.get('faculty_ids',[]):
@@ -35,11 +38,16 @@ def validate_version(version):
     entries=list(version.entries.select_related('section','section__program','course_offering','course_offering__course','room','start_slot','start_slot__template').prefetch_related('faculty_assignments'))
     entry_faculty={entry.pk:[str(x.faculty_id) for x in entry.faculty_assignments.all()] for entry in entries}
     slots_by_template={}
+    conflicts=[]
     for entry in entries:
+        expected_delivery='ONLINE' if entry.section.delivery_policy=='HYBRID' and entry.weekday!=entry.section.offline_weekday else 'OFFLINE'
+        if entry.delivery_mode!=expected_delivery: conflicts.append({'type':'DELIVERY_MODE_MISMATCH','severity':'ERROR','message':'Entry delivery mode does not match the section delivery policy and weekday.','entry_id':str(entry.pk),'expected_delivery_mode':expected_delivery,'actual_delivery_mode':entry.delivery_mode})
+        if expected_delivery=='OFFLINE' and not entry.room_id: conflicts.append({'type':'ROOM_REQUIRED','severity':'ERROR','message':'A physical room is required for this offline class.','entry_id':str(entry.pk)})
+        if expected_delivery=='ONLINE' and entry.room_id: conflicts.append({'type':'ONLINE_ROOM_NOT_ALLOWED','severity':'ERROR','message':'Online classes must not reserve a physical room.','entry_id':str(entry.pk)})
         template_id=entry.start_slot.template_id
         if template_id not in slots_by_template:
             slots_by_template[template_id]=list(TimeSlot.objects.filter(template_id=template_id).order_by('order'))
-    windows={}; conflicts=[]
+    windows={}
     for entry in entries:
         ordered=slots_by_template[entry.start_slot.template_id]; position=next((i for i,x in enumerate(ordered) if x.pk==entry.start_slot_id),-1)
         window=ordered[position:position+entry.block_length] if position>=0 else []

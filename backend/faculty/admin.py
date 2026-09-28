@@ -11,7 +11,7 @@ class FacultyAdmin(admin.ModelAdmin):
         return str(obj)
     @admin.display(description='Email')
     def linked_email(self, obj):
-        return obj.user.email if obj.user else '—'
+        return obj.email or (obj.user.email if obj.user else '—')
 @admin.register(FacultyAvailability)
 class FacultyAvailabilityAdmin(admin.ModelAdmin):
     list_display = ('faculty', 'weekday', 'time_slot', 'is_available', 'preference_weight'); list_filter = ('weekday', 'is_available'); autocomplete_fields = ('faculty', 'time_slot')

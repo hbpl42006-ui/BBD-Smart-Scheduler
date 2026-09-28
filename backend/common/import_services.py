@@ -6,7 +6,19 @@ from faculty.models import CourseOfferingFaculty, Faculty
 from faculty.models import FacultyAvailability
 from common.models import TimeSlot
 from institutions.models import Department, Program
+from faculty.email_service import sync_faculty_email
 import re
+import logging
+
+logger = logging.getLogger(__name__)
+
+class FacultyImportCommitError(Exception):
+    def __init__(self, row, faculty_name, employee_code, cause):
+        self.row = row
+        self.faculty_name = faculty_name
+        self.employee_code = employee_code
+        self.cause = cause
+        super().__init__(str(cause))
 
 def value(source, aliases, required=False):
     normalized={str(k).strip().lower().replace(' ','_'):v for k,v in source.items()}
@@ -45,6 +57,57 @@ def faculty_import(rows, commit=True):
             if commit: Faculty.objects.create(user=user,name=name,employee_code=employee,initials=initials,department=dept,max_weekly_periods=load)
             result['created']+=1
         except Exception as exc: result['failed']+=1; result['errors'].append({'row':number,'identifier':source.get('Employee Code',source.get('employee_code','')),'message':str(exc)})
+    return result
+
+def faculty_import_safe(rows, commit=True, mode='UPSERT'):
+    result={'created':0,'updated':0,'skipped':0,'archive':0,'failed':0,'errors':[],'warnings':0,'warning_details':[]}; prepared=[]; identities=set(); emails=set()
+    for number,source in enumerate(rows,2):
+        try:
+            name=value(source,['faculty_name','faculty name','name','Faculty Name'],True); employee=value(source,['employee_code','employee code','Employee Code']); email=value(source,['email','Email']).lower(); initials=value(source,['initials','Initials']); dept_value=value(source,['department','Department']); dept=Department.objects.filter(code__iexact=dept_value).first() or Department.objects.filter(name__iexact=dept_value).first()
+            if not dept: raise ValueError('Department is required and must match a department code or name.')
+            if email in {'-','n/a','na','null','none'}: email=''
+            if email and not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email): raise ValueError('Invalid email address.')
+            by_code=Faculty.objects.filter(employee_code__iexact=employee).first() if employee else None; by_email_qs=Faculty.objects.filter(email__iexact=email) if email else Faculty.objects.none(); by_user_qs=Faculty.objects.filter(user__email__iexact=email) if email else Faculty.objects.none()
+            if by_email_qs.count()>1 or by_user_qs.count()>1: raise ValueError('Email identifies multiple Faculty records.')
+            by_email=by_email_qs.first() or by_user_qs.first()
+            if by_code and by_email and by_code.pk!=by_email.pk: raise ValueError('Employee Code and Email identify different faculty records.')
+            match=by_code or by_email; same=list(Faculty.objects.filter(department=dept,name__iexact=' '.join(name.split())))
+            if email and match and match.user_id and User.objects.filter(email__iexact=email).exclude(pk=match.user_id).exists():
+                raise ValueError('This email is already used by another user account.')
+            if not email and not (match and match.email): raise ValueError('Email is required for active faculty.')
+            if not match and not employee and not email:
+                if len(same)>1: raise ValueError(f"Multiple faculty records match '{name}'. Provide Employee Code or Email to identify the correct record.")
+                match=same[0] if same else None
+            identity=employee.casefold() if employee else email.casefold() if email else f'name:{name.casefold()}:{dept.pk}'
+            if identity in identities: raise ValueError('Duplicate Faculty identity in uploaded file.')
+            identities.add(identity)
+            if email and email in emails: raise ValueError('Duplicate Email in uploaded file.')
+            if email: emails.add(email)
+            prepared.append((name,employee,email,initials,dept,match,number)); result['updated' if match else 'created']+=1
+        except Exception as exc: result['failed']+=1; result['errors'].append({'row':number,'identifier':source.get('Employee Code',source.get('employee_code','')),'message':str(exc)})
+    if mode=='CREATE_ONLY': result['skipped']=result['updated']; result['updated']=0
+    if mode=='REPLACE' and not result['errors']: result['archive']=Faculty.objects.filter(active=True).exclude(pk__in={x[5].pk for x in prepared if x[5]}).count()
+    if not commit or result['errors']: return result
+    current_row = current_name = current_employee = None
+    try:
+        with transaction.atomic():
+            for name,employee,email,initials,dept,match,current_row in prepared:
+                current_name, current_employee = name, employee
+                logger.info('Applying Faculty row %s', current_row)
+                if mode=='CREATE_ONLY' and match: continue
+                if match:
+                    values={'name':name,'department':dept};
+                    if employee: values['employee_code']=employee
+                    if initials: values['initials']=initials
+                    if email: values['email']=email
+                    if mode=='REPLACE': values['active']=True
+                    Faculty.objects.filter(pk=match.pk).update(**values)
+                    if email and match.user_id: sync_faculty_email(Faculty.objects.get(pk=match.pk), email)
+                else: Faculty.objects.create(name=name,employee_code=employee or None,email=email or None,initials=initials,department=dept,active=True)
+            if mode=='REPLACE': Faculty.objects.filter(active=True).exclude(pk__in={x[5].pk for x in prepared if x[5]}).update(active=False)
+    except Exception as exc:
+        logger.exception('Faculty import commit failed at row=%s faculty=%s employee_code=%s', current_row, current_name, current_employee)
+        raise FacultyImportCommitError(current_row, current_name, current_employee, exc) from exc
     return result
 
 def course_import(rows):
@@ -89,7 +152,7 @@ def section_import(rows, commit=True):
     result={'created':0,'skipped':0,'failed':0,'errors':[],'warnings':0}; seen=set()
     required={'program','semester','year','name'}
     if rows:
-        aliases={'program':'program','program_name':'program','program_code':'program','semester_name':'semester','academic_year':'year','study_year':'year','section':'name','section_name':'name','student_strength':'student_strength','strength':'student_strength','capacity':'student_strength'}
+        aliases={'program':'program','program_name':'program','program_code':'program','semester_name':'semester','academic_year':'year','study_year':'year','section':'name','section_name':'name','student_strength':'student_strength','strength':'student_strength','capacity':'student_strength','delivery_policy':'delivery_policy','delivery policy':'delivery_policy','delivery_mode':'delivery_policy','offline_day':'offline_weekday','offline day':'offline_weekday','offline_weekday':'offline_weekday','offline weekday':'offline_weekday'}
         rows=[{aliases.get(str(k).strip().lower().replace('-','_'),'_unknown' if not str(k).strip() else str(k).strip().lower().replace(' ','_')):v for k,v in row.items()} for row in rows]
         missing=required-set(rows[0])
         if missing: return {'created':0,'skipped':0,'failed':1,'errors':[{'row':1,'identifier':'','message':'Missing required columns: '+', '.join(sorted(missing))}],'warnings':0}
@@ -107,10 +170,17 @@ def section_import(rows, commit=True):
             if year<=0 or year!=year_value or year>program.duration_years: raise ValueError('Year is outside the valid program range.')
             strength_value=str(row.get('student_strength','') or '').strip(); strength=60 if not strength_value else int(float(strength_value))
             if strength<=0 or (strength_value and float(strength_value)!=strength): raise ValueError('Student Strength must be a positive integer.')
+            delivery_policy=str(row.get('delivery_policy','STANDARD') or 'STANDARD').strip().upper()
+            offline_value=str(row.get('offline_weekday','') or '').strip()
+            if delivery_policy not in {'STANDARD','HYBRID'}: raise ValueError('Delivery Policy must be STANDARD or HYBRID.')
+            weekday_names={name.lower():index for index,name in enumerate(('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'))}
+            offline_weekday=int(offline_value) if offline_value.isdigit() else weekday_names.get(offline_value.lower())
+            if delivery_policy=='HYBRID' and offline_weekday not in range(6): raise ValueError('Hybrid sections require an Offline Day from Monday through Saturday.')
+            if delivery_policy!='HYBRID' and offline_value: raise ValueError('Offline Day can only be provided for HYBRID sections.')
             key=(program.pk,sem.pk,year,name.lower())
             if key in seen or Section.objects.filter(program=program,semester=sem,year=year,name__iexact=name).exists(): result['skipped']+=1; continue
             seen.add(key)
-            if commit: Section.objects.create(program=program,semester=sem,year=year,name=name,student_strength=strength)
+            if commit: Section.objects.create(program=program,semester=sem,year=year,name=name,student_strength=strength,delivery_policy=delivery_policy,offline_weekday=offline_weekday if delivery_policy=='HYBRID' else None)
             result['created']+=1
         except Exception as exc: result['failed']+=1; result['errors'].append({'row':number,'identifier':row.get('name',''),'message':str(exc)})
     return result

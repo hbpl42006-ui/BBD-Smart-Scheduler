@@ -36,16 +36,37 @@ class Semester(models.Model):
         return f"{self.name} ({self.type})"
 
 class Section(models.Model):
+    class DeliveryPolicy(models.TextChoices):
+        STANDARD = 'STANDARD', 'Standard (physical room required)'
+        HYBRID = 'HYBRID', 'Hybrid (one offline weekday)'
+
+    class Weekday(models.IntegerChoices):
+        MONDAY = 0, 'Monday'
+        TUESDAY = 1, 'Tuesday'
+        WEDNESDAY = 2, 'Wednesday'
+        THURSDAY = 3, 'Thursday'
+        FRIDAY = 4, 'Friday'
+        SATURDAY = 5, 'Saturday'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name='sections')
     semester = models.ForeignKey(Semester, on_delete=models.CASCADE, related_name='sections')
     year = models.PositiveIntegerField()
     name = models.CharField(max_length=50)
     student_strength = models.PositiveIntegerField(default=60)
+    delivery_policy = models.CharField(max_length=12, choices=DeliveryPolicy.choices, default=DeliveryPolicy.STANDARD)
+    offline_weekday = models.PositiveSmallIntegerField(choices=Weekday.choices, null=True, blank=True)
     coordinator = models.ForeignKey('accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='coordinated_sections')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.delivery_policy == self.DeliveryPolicy.HYBRID and self.offline_weekday is None:
+            raise ValidationError({'offline_weekday': 'A hybrid section must have an offline weekday configured.'})
+        if self.delivery_policy != self.DeliveryPolicy.HYBRID and self.offline_weekday is not None:
+            raise ValidationError({'offline_weekday': 'Offline weekday is only valid for hybrid sections.'})
 
     def __str__(self):
         return f"{self.program.code} - {self.name} (Year {self.year})"
@@ -59,6 +80,7 @@ class Course(models.Model):
     lecture_hours = models.PositiveIntegerField(default=0)
     tutorial_hours = models.PositiveIntegerField(default=0)
     practical_hours = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -78,11 +100,12 @@ class CourseOffering(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     semester = models.ForeignKey(Semester, on_delete=models.CASCADE, related_name='course_offerings')
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='course_offerings')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='offerings')
+    course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name='offerings')
     
     weekly_periods = models.PositiveIntegerField()
     default_class_type = models.CharField(max_length=20, choices=ClassType.choices, default=ClassType.LECTURE)
     required_block_size = models.PositiveIntegerField(default=1)
+    allow_remainder_period = models.BooleanField(default=False)
     room_type_requirement = models.CharField(max_length=50, blank=True)
     preferred_room = models.ForeignKey('rooms.Room', on_delete=models.SET_NULL, null=True, blank=True)
     active = models.BooleanField(default=True)

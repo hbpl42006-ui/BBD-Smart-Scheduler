@@ -8,6 +8,9 @@ from scheduling.models import TimetableVersion
 from scheduling.services.timetable_import import parse,commit,template
 from scheduling.services.audit import record
 from common.imports import rows_from_upload
+import logging
+
+logger=logging.getLogger(__name__)
 
 class TimetableImportView(APIView):
     permission_classes=[GenerationPermission]
@@ -17,7 +20,9 @@ class TimetableImportView(APIView):
         upload=request.FILES.get('file')
         if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
         try: rows=rows_from_upload(upload); result,grouped=parse(version,rows)
-        except Exception: return Response({'detail':'The uploaded timetable file could not be read.'},status=400)
+        except Exception as exc:
+            logger.exception('Timetable preview failed')
+            return Response({'detail':'Timetable preview failed.','error_type':exc.__class__.__name__,'error':str(exc)},status=400)
         if action=='preview': return Response(result)
         if result['invalid']: return Response(result,status=400)
         with transaction.atomic():

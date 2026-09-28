@@ -1,17 +1,323 @@
-'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
-import {useEffect,useMemo,useState} from 'react';
-import {useParams} from 'next/navigation';
-import {AdminLayout} from '@/components/layout/AdminLayout';
-import {Header} from '@/components/layout/Header';
-import {Card,CardContent,CardHeader,CardTitle} from '@/components/ui/card';
-import {Button} from '@/components/ui/button';
-import {me} from '@/lib/api/auth';
-import {canGenerateTimetable,Role} from '@/lib/permissions';
-import {GenerationMode,GenerationRun,GenerationSettings,GenerationPreflightResult,OfferingGenerationRule,schedulingApi,TimeSlot,Version,listAll} from '@/lib/api/scheduling';
-import {parseSessionPattern,validateSessionPattern} from '@/lib/sessionPattern';
-import {GenerationPreview} from '@/components/GenerationPreview';
-type Option={id:string;name?:string;code?:string;initials?:string;section?:string;section_id?:string;course_name?:string;course_code?:string;weekly_periods?:number;program_name?:string};
-const sectionId=(x:Option)=>x.section_id??x.section??'';const human=(x?:string)=>x?.replaceAll('_',' ').toLowerCase().replace(/(^| )\w/g,c=>c.toUpperCase())??'Unknown';
-const list = <T,>(url:string)=>listAll<T>(url);
-export default function Page(){const {id}=useParams<{id:string}>();const [role,setRole]=useState<Role>(),[versions,setVersions]=useState<Version[]>([]),[source,setSource]=useState(''),[sections,setSections]=useState<Option[]>([]),[all,setAll]=useState<Option[]>([]),[faculty,setFaculty]=useState<Option[]>([]),[slots,setSlots]=useState<TimeSlot[]>([]),[selected,setSelected]=useState<string[]>([]),[mode,setMode]=useState<GenerationMode>('FILL_GAPS'),[rules,setRules]=useState<OfferingGenerationRule[]>([]),[raw,setRaw]=useState<Record<string,string>>({}),[soft,setSoft]=useState({spread_course_days:50,balance_section_load:40,minimize_section_gaps:60,minimize_faculty_gaps:40,preserve_existing:70}),[advanced,setAdvanced]=useState({max_solve_seconds:30,random_seed:42}),[step,setStep]=useState(1),[error,setError]=useState(''),[preflight,setPreflight]=useState<GenerationPreflightResult>(),[run,setRun]=useState<GenerationRun>(),[detail,setDetail]=useState<GenerationRun>(),[loadingDetail,setLoadingDetail]=useState(false),[detailError,setDetailError]=useState(''),[busy,setBusy]=useState(false),[historyRuns,setHistoryRuns]=useState<GenerationRun[]>([]),[historySelected,setHistorySelected]=useState<GenerationRun>(),[historyLoading,setHistoryLoading]=useState(false),[historyError,setHistoryError]=useState('');const offerings=useMemo(()=>{const ids=new Set(selected);return all.filter(x=>ids.has(sectionId(x)))},[all,selected]);const checks=useMemo(()=>offerings.map((o,i)=>{const r=rules[i];const p=parseSessionPattern(raw[o.id]??r?.session_lengths.join(' + ')??'');const v=p.error?{valid:false,total:0}:{...validateSessionPattern(o.weekly_periods??0,p.values)};return {o,...v,error:p.error??(v.valid?'':`Configured sessions total ${v.total} period${v.total===1?'':'s'}, but ${o.weekly_periods??0} periods are required.`)}}),[offerings,rules,raw]);const invalid=checks.some(x=>!x.valid)||rules.some(r=>!r.faculty.length||r.faculty.some(a=>!a.faculty_id));useEffect(()=>{Promise.all([me(),schedulingApi.listVersions(id),list<Option>('/sections/'),list<Option>('/course-offerings/'),list<Option>('/faculty/'),list<TimeSlot>('/time-slots/')]).then(([u,v,s,o,f,t])=>{setRole(u.role as Role);setVersions(v);setSource(v[0]?.id??'');setSections(s);setAll(o);setFaculty(f);setSlots(t)}).catch(()=>setError('Unable to load generator data.'))},[id]);useEffect(()=>setRules(offerings.map(o=>rules.find(r=>r.course_offering_id===o.id)??{course_offering_id:o.id,faculty:[],entry_type:'LECTURE',session_lengths:Array(o.weekly_periods??1).fill(1)})),[offerings]);useEffect(()=>{if(step!==5||!run)return;setLoadingDetail(true);setDetailError('');schedulingApi.generationRun(run.id).then(setDetail).catch(()=>{setDetailError('Could not load generated timetable.');setDetail(run.result?run:undefined)}).finally(()=>setLoadingDetail(false))},[step,run]);useEffect(()=>{if(step!==6)return;setHistoryLoading(true);setHistoryError('');Promise.all(versions.map(v=>schedulingApi.generationRuns(v.id))).then(groups=>setHistoryRuns(groups.flat().sort((a,b)=>b.created_at.localeCompare(a.created_at)))).catch(()=>setHistoryError('Could not load generation history.')).finally(()=>setHistoryLoading(false))},[step,versions]);const refreshVersions=()=>{schedulingApi.listVersions(id).then(setVersions).catch(()=>undefined)};const selectHistory=async(id:string)=>{setHistoryLoading(true);setHistoryError('');try{setHistorySelected(await schedulingApi.generationRun(id))}catch{setHistoryError('Could not load historical run.')}finally{setHistoryLoading(false)}};const update=(i:number,v:Partial<OfferingGenerationRule>)=>setRules(x=>x.map((r,j)=>j===i?{...r,...v}:r));const change=(i:number,o:Option,value:string)=>{setRaw(x=>({...x,[o.id]:value}));const p=parseSessionPattern(value);if(!p.error)update(i,{session_lengths:p.values})};const payload=():GenerationSettings=>({mode,section_ids:selected,offering_rules:rules,soft_constraints:soft,max_solve_seconds:advanced.max_solve_seconds,random_seed:advanced.random_seed});const runPreflight=async()=>{if(invalid){setError('Complete valid session patterns and faculty assignments before preflight.');return}setBusy(true);setError('');try{setPreflight(await schedulingApi.generationPreflight(source,payload()))}catch(e){const d=(e as {response?:{data?:GenerationPreflightResult}}).response?.data;if(d)setPreflight(d);else setError('The preflight request could not reach the backend.')}finally{setBusy(false)}};const generate=async()=>{if(!preflight?.valid)return;setBusy(true);try{setRun(await schedulingApi.createGeneration(source,payload()));setStep(5)}catch{setError('Generation could not be started.')}finally{setBusy(false)}};if(!canGenerateTimetable(role))return <AdminLayout><Header title="Generate Timetable"/><main className="p-6"><Card><CardContent className="p-8">Your role cannot generate timetables.</CardContent></Card></main></AdminLayout>;return <AdminLayout><Header title="Generate Timetable"/><main className="mx-auto max-w-7xl space-y-5 p-6"><div className="flex flex-wrap gap-2 text-sm">{['Scope','Offerings','Preferences','Preflight','Preview','History'].map((x,i)=><span className={`rounded-full px-3 py-1 ${step===i+1?'bg-blue-700 text-white':'bg-slate-100'}`} key={x}>{i+1}. {x}</span>)}</div>{error&&<p className="rounded bg-red-50 p-3 text-red-700">{error}</p>}{step<=3&&<Card><CardHeader><CardTitle>{step===1?'Scope':step===2?'Offerings':'Preferences'}</CardTitle></CardHeader><CardContent>{step===1?<><select className="rounded border p-2" value={source} onChange={e=>setSource(e.target.value)}>{versions.map(v=><option key={v.id} value={v.id}>v{v.version_no} Â· {v.status}</option>)}</select><div className="my-4">{(['FILL_GAPS','REBUILD_UNLOCKED'] as GenerationMode[]).map(x=><label className="mr-4" key={x}><input type="radio" checked={mode===x} onChange={()=>setMode(x)}/>{x}</label>)}</div>{sections.map(s=><label className="mr-2 inline-block rounded border p-2" key={s.id}><input type="checkbox" checked={selected.includes(s.id)} onChange={e=>setSelected(e.target.checked?[...selected,s.id]:selected.filter(x=>x!==s.id))}/>{s.program_name??'Section'} Â· {s.name??s.id}</label>)}</>:step===2?<div className="space-y-4">{checks.map((x,i)=><div className="rounded border p-4" key={x.o.id}><b>{x.o.course_name??x.o.name??x.o.course_code??x.o.id}</b><select className="mt-2 block rounded border p-2" value={rules[i]?.entry_type??'LECTURE'} onChange={e=>update(i,{entry_type:e.target.value})}>{['LECTURE','TUTORIAL','PRACTICAL','COMMON','LIBRARY','OTHER'].map(t=><option key={t}>{t}</option>)}</select><input className="mt-2 block w-full rounded border p-2" value={raw[x.o.id]??rules[i]?.session_lengths.join(' + ')??''} onChange={e=>change(i,x.o,e.target.value)} placeholder="1 + 1 + 1 or 1,1,1"/><small>Total configured: {x.total}</small>{!x.valid&&<p className="text-sm text-red-600">{x.error}</p>}<div className="mt-3"><p>Faculty assignments</p>{rules[i]?.faculty.map((a,j)=><div className="mt-1 flex flex-wrap gap-2" key={`${x.o.id}-${j}`}><select className="rounded border p-2" value={a.faculty_id} onChange={e=>update(i,{faculty:rules[i].faculty.map((z,k)=>k===j?{...z,faculty_id:e.target.value}:z)})}><option value="">Select faculty</option>{faculty.map(f=><option key={f.id} disabled={rules[i].faculty.some((z,k)=>k!==j&&z.faculty_id===f.id)} value={f.id}>{f.name??f.initials??f.id}</option>)}</select><select className="rounded border p-2" value={a.role} onChange={e=>update(i,{faculty:rules[i].faculty.map((z,k)=>k===j?{...z,role:e.target.value}:z)})}><option>PRIMARY</option><option>CO_FACULTY</option><option>ASSISTANT</option></select><Button type="button" variant="outline" onClick={()=>update(i,{faculty:rules[i].faculty.filter((_,k)=>k!==j)})}>Remove</Button></div>)}<Button type="button" variant="outline" onClick={()=>update(i,{faculty:[...rules[i].faculty,{faculty_id:'',role:'PRIMARY'}]})}>Add Faculty</Button></div></div>)}</div>:<div className="grid gap-4 sm:grid-cols-2">{Object.entries(soft).map(([k,v])=><label className="capitalize" key={k}>{k.replaceAll('_',' ')}<input className="mt-1 block w-full" type="range" min="0" max="100" value={v} onChange={e=>setSoft({...soft,[k]:Number(e.target.value)})}/></label>)}<label>Max solve seconds<input className="ml-2 rounded border p-2" type="number" value={advanced.max_solve_seconds} onChange={e=>setAdvanced({...advanced,max_solve_seconds:Number(e.target.value)})}/></label><label>Random seed<input className="ml-2 rounded border p-2" type="number" value={advanced.random_seed} onChange={e=>setAdvanced({...advanced,random_seed:Number(e.target.value)})}/></label></div>}<div className="mt-5 flex justify-between"><Button variant="outline" disabled={step===1} onClick={()=>setStep(step-1)}>Back</Button><Button disabled={step===2&&(invalid||!offerings.length)||step===3&&busy} onClick={()=>step===1?setStep(2):step===2?setStep(3):step===3?setStep(4):void 0}>{step===1||step===2?'Continue':'Run Preflight'}</Button></div></CardContent></Card>}{step===4&&<Card><CardHeader><CardTitle>Preflight</CardTitle></CardHeader><CardContent className="space-y-4"><p>Mode: {mode} Â· Sections: {selected.length} Â· Offerings: {offerings.length}</p>{preflight&&<div className={`rounded p-3 ${preflight.valid?'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`}><b>{preflight.valid?'Ready to Generate':'Configuration Needs Attention'}</b>{(preflight.errors??[]).map((x,i)=><p key={i}>{human(x.code)}: {x.message}</p>)}{(preflight.warnings??[]).map((x,i)=><p key={i}>Warning: {human(x.code)}: {x.message}</p>)}</div>}<div className="flex justify-between"><Button variant="outline" onClick={()=>setStep(3)}>Back</Button><Button onClick={runPreflight} disabled={busy}>{busy?'Checkingâ€¦':'Run Preflight'}</Button>{preflight?.valid&&<Button onClick={generate} disabled={busy}>{busy?'Generatingâ€¦':'Generate Timetable'}</Button>}</div></CardContent></Card>}{step===5&&<div className="flex justify-end"><Button variant="outline" onClick={()=>setStep(6)}>History</Button></div>}{step===5&&(loadingDetail?<p>Loading generated timetable...</p>:detailError?<p className="rounded bg-red-50 p-3 text-red-700">{detailError}</p>:detail?.result?.entries?.length?<GenerationPreview run={detail} slots={slots} faculty={faculty} sections={sections} applied="" onApply={()=>undefined} onAppliedVersion={refreshVersions}/>:<p className="rounded bg-amber-50 p-3">No candidate timetable entries were returned.</p>)}<>{step===6&&<Card><CardHeader><CardTitle>Generation History</CardTitle></CardHeader><CardContent className="space-y-4">{historyLoading&&!historyRuns.length?<p>Loading generation history...</p>:historyError?<p className="rounded bg-red-50 p-3 text-red-700">{historyError}</p>:!historyRuns.length?<p className="rounded bg-slate-50 p-3">No generation runs yet.</p>:<div className="grid gap-3 md:grid-cols-2">{historyRuns.map(r=><button type="button" className="rounded border p-4 text-left hover:bg-slate-50" key={r.id} onClick={()=>selectHistory(r.id)}><b>{human(r.status)}</b><p className="text-sm">{human(r.mode)} - {new Date(r.created_at).toLocaleString()}</p><p className="text-sm">Objective: {r.objective_score??'-'} - Entries: {r.statistics?.generated_entry_count??r.result?.entries?.length??0}</p><p className="text-sm">{r.applied_version?`Applied to Version ${versions.find(v=>v.id===r.applied_version)?.version_no??''}`:'Not applied'}</p></button>)}</div>}{historySelected&&<div className="border-t pt-4"><h3 className="mb-3 font-medium">Historical timetable preview</h3><GenerationPreview run={historySelected} slots={slots} faculty={faculty} sections={sections} applied={versions.find(v=>v.id===historySelected.applied_version)?.version_no?.toString()??''} onApply={()=>undefined} onAppliedVersion={refreshVersions}/></div>}</CardContent></Card>}</></main></AdminLayout>}
+﻿'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { AdminLayout } from '@/components/layout/AdminLayout';
+import { Header } from '@/components/layout/Header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { me } from '@/lib/api/auth';
+import { canGenerateTimetable, Role } from '@/lib/permissions';
+import {
+  GenerationMode,
+  GenerationPreflightResult,
+  GenerationRun,
+  GenerationSettings,
+  OfferingGenerationRule,
+  schedulingApi,
+  Version,
+  listAll,
+  createInitialDraftVersion,
+} from '@/lib/api/scheduling';
+import { PreflightDiagnostics } from '@/components/PreflightDiagnostics';
+import { GenerationPreview } from '@/components/GenerationPreview';
+
+type Option = {
+  id: string;
+  name?: string;
+  program_name?: string;
+  section?: string;
+  section_id?: string;
+  course_name?: string;
+  course_code?: string;
+  weekly_periods?: number;
+  default_class_type?: string;
+  required_block_size?: number;
+  allow_remainder_period?: boolean;
+  room_type_requirement?: string;
+  delivery_policy?: 'STANDARD' | 'HYBRID';
+  offline_weekday?: number | null;
+  faculty_assignments?: { faculty_id: string; role?: string }[];
+};
+type Preferences = {
+  spread_course_days: number;
+  balance_section_load: number;
+  minimize_section_gaps: number;
+  minimize_faculty_gaps: number;
+  preserve_existing: number;
+  random_seed: number;
+  max_solve_seconds: number;
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const weekdayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const LABEL_SEPARATOR = ' \u00b7 ';
+const initialPreferences: Preferences = {
+  spread_course_days: 50,
+  balance_section_load: 40,
+  minimize_section_gaps: 60,
+  minimize_faculty_gaps: 40,
+  preserve_existing: 70,
+  random_seed: 42,
+  max_solve_seconds: 30,
+};
+const sectionId = (item: Option) => item.section_id ?? item.section ?? '';
+
+const fromOffering = (item: Option): OfferingGenerationRule => {
+  const entryType = item.default_class_type ?? 'LECTURE';
+  const block = entryType === 'LECTURE' ? 1 : Math.max(1, item.required_block_size ?? 1);
+  const periods = item.weekly_periods ?? 0;
+  return {
+    course_offering_id: item.id,
+    faculty: (item.faculty_assignments ?? []).map(assignment => ({
+      faculty_id: assignment.faculty_id,
+      role: assignment.role ?? 'PRIMARY',
+    })),
+    session_lengths: Array.from({ length: Math.floor(periods / block) }, () => block).concat(item.allow_remainder_period && periods % block ? [periods % block] : []),
+    entry_type: entryType,
+    room_type: item.room_type_requirement || undefined,
+    block_size: block,
+    allow_remainder_period: item.allow_remainder_period ?? false,
+  };
+};
+
+export default function Page() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const [role, setRole] = useState<Role>();
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [source, setSource] = useState('');
+  const [sections, setSections] = useState<Option[]>([]);
+  const [all, setAll] = useState<Option[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [rules, setRules] = useState<OfferingGenerationRule[]>([]);
+  const [preferences, setPreferences] = useState(initialPreferences);
+  const [mode, setMode] = useState<GenerationMode>('FILL_GAPS');
+  const [step, setStep] = useState(1);
+  const [preflightResult, setPreflightResult] = useState<GenerationPreflightResult>();
+  const [run, setRun] = useState<GenerationRun>();
+  const [error, setError] = useState('');
+  const [preflightBusy, setPreflightBusy] = useState(false);
+  const [generationBusy, setGenerationBusy] = useState(false);
+  const [configured, setConfigured] = useState(false);
+  const [versionsLoaded, setVersionsLoaded] = useState(false);
+  const [timetableMissing, setTimetableMissing] = useState(false);
+  const [showGeneratedPreview, setShowGeneratedPreview] = useState(false);
+
+  const offerings = useMemo(() => {
+    const sectionIds = new Set(selected);
+    return all.filter(item => sectionIds.has(sectionId(item)));
+  }, [all, selected]);
+  const configure = () => setRules(previous => offerings.map(item =>
+    previous.find(rule => rule.course_offering_id === item.id) ?? fromOffering(item),
+  ));
+  const payload = (): GenerationSettings => ({
+    mode,
+    section_ids: selected,
+    offering_rules: offerings.map(item =>
+      rules.find(rule => rule.course_offering_id === item.id) ?? fromOffering(item),
+    ),
+    soft_constraints: {
+      spread_course_days: preferences.spread_course_days,
+      balance_section_load: preferences.balance_section_load,
+      minimize_section_gaps: preferences.minimize_section_gaps,
+      minimize_faculty_gaps: preferences.minimize_faculty_gaps,
+      preserve_existing: preferences.preserve_existing,
+    },
+    max_solve_seconds: preferences.max_solve_seconds,
+    random_seed: preferences.random_seed,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      me(),
+      schedulingApi.list(),
+      schedulingApi.listVersions(id),
+      listAll<Option>('/sections/'),
+      listAll<Option>('/course-offerings/'),
+    ]).then(([user, timetables, versionList, sectionList, offeringList]) => {
+      if (cancelled) return;
+      const timetable = timetables.find(item => item.id === id);
+      if (!timetable) {
+        setTimetableMissing(true);
+        setError('This timetable no longer exists. Please select or create a timetable.');
+        router.replace('/timetables?notice=timetable-missing');
+        return;
+      }
+      setRole(user.role as Role);
+      setVersions(versionList);
+      setSource(versionList[0]?.id && UUID_RE.test(versionList[0].id) ? versionList[0].id : '');
+      setSections(sectionList);
+      setAll(offeringList);
+      setVersionsLoaded(true);
+      console.log('[GENERATE] timetableId =', timetable.id);
+      console.log('[GENERATE] versions =', versionList);
+      console.log('[GENERATE] selectedVersionId =', versionList[0]?.id ?? '');
+    }).catch((cause: unknown) => {
+      if (cancelled) return;
+      const status = (cause as { response?: { status?: number } }).response?.status;
+      if (status === 404) {
+        setTimetableMissing(true);
+        setError('This timetable no longer exists. Please select or create a timetable.');
+        router.replace('/timetables?notice=timetable-missing');
+        return;
+      }
+      setVersionsLoaded(true);
+      setError('Unable to load generator data.');
+    });
+    return () => { cancelled = true; };
+  }, [id, router]);
+
+  useEffect(() => {
+    if (!UUID_RE.test(id)) return;
+    let cancelled = false;
+    void schedulingApi.detail(id).catch((cause: unknown) => {
+      if (cancelled) return;
+      if ((cause as { response?: { status?: number } }).response?.status === 404) {
+        setTimetableMissing(true);
+        setError('This timetable no longer exists. Please select or create a timetable.');
+        router.replace('/timetables?notice=timetable-missing');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [id, router]);
+
+  const createDraftVersion = async () => {
+    if (!id.trim() || !UUID_RE.test(id)) {
+      setError('This timetable no longer exists. Please select or create a timetable.');
+      return;
+    }
+    setGenerationBusy(true);
+    setError('');
+    try {
+      const version = await createInitialDraftVersion(id);
+      setVersions([version]);
+      setSource(version.id);
+      setPreflightResult(undefined);
+    } catch (cause: unknown) {
+      const status = (cause as { response?: { status?: number } }).response?.status;
+      if (status === 404) {
+        setError('This timetable no longer exists. Please select or create a timetable.');
+        router.replace('/timetables?notice=timetable-missing');
+      } else setError('Could not create a draft version. Please try again.');
+    } finally {
+      setGenerationBusy(false);
+    }
+  };
+
+  const runPreflight = async () => {
+    if (!source.trim()) {
+      setError('No timetable version is selected. Create a draft version before running preflight.');
+      return;
+    }
+    if (!UUID_RE.test(source)) {
+      setError('The selected timetable version ID is invalid. Reload the timetable versions and try again.');
+      return;
+    }
+    setPreflightBusy(true);
+    setError('');
+    try {
+      setPreflightResult(await schedulingApi.generationPreflight(source, payload()));
+    } catch (cause: unknown) {
+      const status = (cause as { response?: { status?: number } }).response?.status;
+      setError(status === 404
+        ? 'This timetable version no longer exists. Select a current version from the timetable.'
+        : 'Preflight could not be completed. Review the response or try again.');
+    } finally {
+      setPreflightBusy(false);
+    }
+  };
+
+  const generate = async () => {
+    if (!source.trim()) {
+      setError('No timetable version is selected. Create a draft version before generating.');
+      return;
+    }
+    if (!UUID_RE.test(source)) {
+      setError('The selected timetable version ID is invalid. Reload the timetable versions and try again.');
+      return;
+    }
+    if (!preflightResult?.valid || generationBusy) return;
+    setGenerationBusy(true);
+    setError('');
+    try {
+      setRun(await schedulingApi.createGeneration(source, payload()));
+      setStep(5);
+    } catch (cause: unknown) {
+      const status = (cause as { response?: { status?: number } }).response?.status;
+      setError(status === 404
+        ? 'This timetable version no longer exists. Select a current version from the timetable.'
+        : 'Generation could not be started. Please try again.');
+    } finally {
+      setGenerationBusy(false);
+    }
+  };
+
+  if (canGenerateTimetable(role) && !versionsLoaded && !timetableMissing) {
+    return <AdminLayout><Header title="Generate Timetable" /><main className="mx-auto max-w-7xl p-6"><Card><CardContent className="p-6">Loading timetable versions...</CardContent></Card></main></AdminLayout>;
+  }
+  if (!canGenerateTimetable(role)) {
+    return <AdminLayout><Header title="Generate Timetable" /><main className="p-6"><Card><CardContent className="p-8">Your role cannot generate timetables.</CardContent></Card></main></AdminLayout>;
+  }
+  if (versionsLoaded && !versions.some(version => UUID_RE.test(version.id))) {
+    return <AdminLayout><Header title="Generate Timetable" /><main className="mx-auto max-w-7xl space-y-5 p-6">{timetableMissing && <p className="rounded bg-red-50 p-3 text-red-700">This timetable no longer exists. Please select or create a timetable.</p>}<Card><CardHeader><CardTitle>Scope</CardTitle></CardHeader><CardContent><p className="font-medium">No timetable version exists for this timetable.</p><p className="mt-1 text-sm text-slate-600">No timetable version exists. Create a draft version before running preflight.</p>{error && <p className="mt-3 text-sm text-red-700">{error}</p>}<div className="mt-4 flex gap-2"><Button type="button" disabled={generationBusy || timetableMissing} onClick={() => void createDraftVersion()}>{generationBusy ? 'Creating draft...' : 'Create Draft Version'}</Button><Link href="/timetables"><Button type="button" variant="outline">Back to Timetables</Button></Link></div></CardContent></Card></main></AdminLayout>;
+  }
+
+  if (step === 5 && run) {
+    const solverStatus = run.solver_status?.toUpperCase() ?? 'UNKNOWN';
+    const generatedEntryCount = run.result?.entries?.length ?? run.statistics?.generated_entry_count ?? 0;
+    const successful = ['OPTIMAL', 'FEASIBLE'].includes(solverStatus) && generatedEntryCount > 0;
+    const wallTime = run.statistics?.wall_time ?? run.statistics?.solve_time_seconds;
+    const message = successful
+      ? 'Timetable generated successfully.'
+      : solverStatus === 'UNKNOWN'
+        ? 'Generation finished, but no feasible timetable was found within the solver time limit.'
+        : solverStatus === 'INFEASIBLE'
+          ? 'No feasible timetable could be created with the current constraints.'
+          : generatedEntryCount === 0
+            ? 'Generation completed without producing timetable entries.'
+            : `Generation finished with solver status ${solverStatus}.`;
+    const resultStyle = successful
+      ? 'bg-green-50 text-green-800'
+      : solverStatus === 'UNKNOWN'
+        ? 'bg-amber-50 text-amber-900'
+        : 'bg-red-50 text-red-800';
+    return <AdminLayout><Header title="Generate Timetable" /><main className="mx-auto max-w-7xl space-y-5 p-6"><Card><CardHeader><CardTitle>Generation result</CardTitle></CardHeader><CardContent className="space-y-4"><p className={`rounded p-3 ${resultStyle}`} role={successful ? 'status' : 'alert'}>{message}</p><dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="font-semibold">Run ID</dt><dd className="break-all">{run.id}</dd></div><div><dt className="font-semibold">Solver status</dt><dd>{solverStatus}</dd></div><div><dt className="font-semibold">Generated entries</dt><dd>{generatedEntryCount}</dd></div><div><dt className="font-semibold">Solver wall time</dt><dd>{wallTime != null ? `${wallTime} seconds` : 'Not provided'}</dd></div></dl><div className="flex gap-2"><Button type="button" variant="outline" onClick={() => setStep(4)}>Back to Preflight</Button>{successful && <Button type="button" onClick={() => setShowGeneratedPreview(value => !value)}>{showGeneratedPreview ? 'Hide Generated Timetable' : 'Preview Generated Timetable'}</Button>}</div></CardContent></Card>{showGeneratedPreview && successful && <GenerationPreview run={run} slots={[]} faculty={[]} sections={[]} applied="" onAppliedVersion={() => setShowGeneratedPreview(false)} />}</main></AdminLayout>;
+  }
+
+  return <AdminLayout><Header title="Generate Timetable" /><main className="mx-auto max-w-7xl space-y-5 p-6">{error && <p className="rounded bg-red-50 p-3 text-red-700">{error}</p>}{step <= 3 && <Card><CardHeader><CardTitle>{step === 1 ? 'Scope' : step === 2 ? 'Offerings' : 'Preferences'}</CardTitle></CardHeader><CardContent>
+    {step === 1 ? <>
+      <select className="rounded border p-2" value={source} onChange={event => setSource(event.target.value)}>{versions.map(version => <option key={version.id} value={version.id}>{[`v${version.version_no}`, version.status].filter(Boolean).join(LABEL_SEPARATOR)}</option>)}</select>
+      <div className="my-4">{(['FILL_GAPS', 'REBUILD_UNLOCKED'] as GenerationMode[]).map(value => <label className="mr-4" key={value}><input type="radio" checked={mode === value} onChange={() => setMode(value)} /> {value}</label>)}</div>
+      <p className="mb-4 text-sm text-slate-600">{mode === 'FILL_GAPS' ? 'Keep all existing entries and fill missing periods.' : 'Keep locked entries and entries outside selected sections; rebuild unlocked entries.'}</p>
+      {sections.map(section => {
+        const hybrid = section.delivery_policy === 'HYBRID';
+        const sectionLabel = [section.program_name ?? 'Section', section.name ?? section.id].filter(Boolean).join(LABEL_SEPARATOR);
+        return <label className="mr-2 mb-2 inline-flex items-center gap-2 rounded border p-2" key={section.id}>
+          <input type="checkbox" checked={selected.includes(section.id)} onChange={event => setSelected(event.target.checked ? [...selected, section.id] : selected.filter(value => value !== section.id))} />
+          <span>{sectionLabel}{hybrid && <span className="ml-2 text-xs text-amber-800">Hybrid - Offline {section.offline_weekday == null ? 'day not configured' : weekdayNames[section.offline_weekday]}; online on other days</span>}</span>
+        </label>;
+      })}
+    </> : step === 2 ? <>
+      <div className="mb-4 flex gap-2"><Button type="button" onClick={() => { configure(); setConfigured(true); }}>Auto Configure All</Button><span className="text-sm">Offerings: {offerings.length}</span></div>
+      {configured && <p className="mb-3 rounded bg-green-50 p-3 text-sm text-green-700">Configuration loaded from Course Offerings</p>}
+      {offerings.map(item => {
+        const rule = rules.find(value => value.course_offering_id === item.id) ?? fromOffering(item);
+        const periods = item.weekly_periods ?? 0;
+        const blockSize = rule.block_size ?? 2;
+        return <div className="mb-3 rounded border p-4" key={item.id}>
+          <b>{item.course_name ?? item.course_code ?? item.id}</b><p className="text-sm">Faculty assignments: {rule.faculty.length}</p>
+          {rule.entry_type === 'PRACTICAL' && <label className="mt-2 block text-sm"><input type="checkbox" checked={rule.allow_remainder_period === true} onChange={event => setRules(previous => previous.map(value => value.course_offering_id === item.id ? {
+            ...value,
+            allow_remainder_period: event.target.checked,
+            session_lengths: event.target.checked && periods % blockSize ? [...Array(Math.floor(periods / blockSize)).fill(blockSize), periods % blockSize] : value.session_lengths,
+          } : value))} /> Allow single remainder period</label>}
+        </div>;
+      })}
+    </> : <div className="grid gap-4 sm:grid-cols-2"><label>Max solve seconds<input className="mt-1 block w-full rounded border p-2" type="number" min={10} max={600} value={preferences.max_solve_seconds} onChange={event => setPreferences(value => ({ ...value, max_solve_seconds: Number(event.target.value) }))} /></label><label>Random seed<input className="mt-1 block w-full rounded border p-2" type="number" value={preferences.random_seed} onChange={event => setPreferences(value => ({ ...value, random_seed: Number(event.target.value) }))} /></label></div>}
+    <div className="mt-5 flex justify-between"><Button variant="outline" disabled={step === 1} onClick={() => setStep(step - 1)}>Back</Button><Button type="button" disabled={step === 2 && !offerings.length} onClick={() => step < 3 ? setStep(step + 1) : setStep(4)}>{step === 3 ? 'Run Preflight' : 'Continue'}</Button></div>
+  </CardContent></Card>}
+  {step === 4 && <Card><CardHeader><CardTitle>Preflight</CardTitle></CardHeader><CardContent><p>Max solve seconds: {preferences.max_solve_seconds}</p>{preflightResult && <PreflightDiagnostics result={preflightResult} />}<div className="mt-4 flex gap-2"><Button type="button" onClick={() => setStep(3)} variant="outline">Back</Button><Button type="button" onClick={() => void runPreflight()} disabled={preflightBusy || generationBusy}>{preflightBusy ? 'Checking...' : 'Run Preflight'}</Button>{preflightResult?.valid && <Button type="button" onClick={() => void generate()} disabled={preflightBusy || generationBusy}>{generationBusy ? `Generating Timetable... (solver limit ${preferences.max_solve_seconds}s)` : 'Generate Timetable'}</Button>}</div></CardContent></Card>}</main></AdminLayout>;
+}

@@ -1,22 +1,25 @@
 from django.db.models import Q
+from django.db.models.deletion import ProtectedError
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
+import logging
 from openpyxl import Workbook
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts.models import User
 from institutions.models import Institution, Department, Program
 from academics.models import AcademicSession, Semester, Section, Course, CourseOffering
-from faculty.models import Faculty, FacultyAvailability, CourseOfferingFaculty
+from faculty.models import Faculty, FacultyAvailability, CourseOfferingFaculty, FacultyArrangement
+from scheduling.models import ScheduleEntryFaculty
 from rooms.models import Room, RoomAvailability
 from common.models import TimeSlotTemplate, TimeSlot
 from common.permissions import RolePermission, WRITE_ROLES
 from common.serializers import *
 from common.imports import rows_from_upload, validate, commit, SPECS
-from common.import_services import faculty_import as faculty_import_rows, course_import as course_import_rows, mapping_import, section_import, availability_import
+from common.import_services import faculty_import_safe as faculty_import_rows, course_import as course_import_rows, mapping_import, section_import, availability_import, FacultyImportCommitError
 from common.course_offering_import import parse as parse_course_offerings, commit as commit_course_offerings, template as course_offering_template
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -43,13 +46,62 @@ class ProgramViewSet(BaseViewSet): queryset=Program.objects.select_related('depa
 class AcademicSessionViewSet(BaseViewSet): queryset=AcademicSession.objects.select_related('institution'); serializer_class=AcademicSessionSerializer; filterset_fields=('institution','is_active')
 class SemesterViewSet(BaseViewSet): queryset=Semester.objects.select_related('session'); serializer_class=SemesterSerializer; filterset_fields=('session','type')
 class SectionViewSet(BaseViewSet): queryset=Section.objects.select_related('program','semester','coordinator'); serializer_class=SectionSerializer; filterset_fields=('program','semester','year')
-class CourseViewSet(BaseViewSet): queryset=Course.objects.all(); serializer_class=CourseSerializer; search_fields=('code','name','short_code')
-class CourseOfferingViewSet(BaseViewSet): queryset=CourseOffering.objects.select_related('course','section','semester','preferred_room'); serializer_class=CourseOfferingSerializer; filterset_fields=('semester','section','course','active')
+class CourseViewSet(BaseViewSet):
+    queryset=Course.objects.all(); serializer_class=CourseSerializer; search_fields=('code','name','short_code')
+    def get_queryset(self):
+        queryset=super().get_queryset()
+        status_filter = self.request.query_params.get('status', 'active').lower()
+        include_inactive = self.request.query_params.get('include_inactive', '').lower() in ('1','true','yes')
+        if status_filter == 'archived':
+            queryset = queryset.filter(active=False)
+        elif status_filter != 'all' and not include_inactive:
+            queryset = queryset.filter(active=True)
+        return queryset
+    def destroy(self, request, *args, **kwargs):
+        instance=self.get_object()
+        if CourseOffering.objects.filter(course=instance).exists():
+            return Response({'detail':'This course is referenced by course offerings and cannot be deleted. Archive it instead.','can_archive':True}, status=status.HTTP_409_CONFLICT)
+        try:
+            self.perform_destroy(instance)
+        except ProtectedError:
+            return Response({'detail':'This course is referenced by course offerings and cannot be deleted. Archive it instead.','can_archive':True}, status=status.HTTP_409_CONFLICT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        course = Course.objects.get(pk=pk); course.active = True; course.save(update_fields=['active']); return Response(self.get_serializer(course).data)
+class CourseOfferingViewSet(BaseViewSet): queryset=CourseOffering.objects.select_related('course','section','semester','preferred_room').prefetch_related('faculties__faculty'); serializer_class=CourseOfferingSerializer; filterset_fields=('semester','section','course','active')
 class FacultyViewSet(BaseViewSet):
     queryset=Faculty.objects.select_related('user','department')
     serializer_class=FacultySerializer
     filterset_fields=('department',)
     search_fields=('user__first_name','user__last_name','user__email','employee_code','initials')
+    def get_queryset(self):
+        queryset=super().get_queryset()
+        status_filter = self.request.query_params.get('status', 'active').lower()
+        include_inactive = self.request.query_params.get('include_inactive', '').lower() in ('1','true','yes')
+        if status_filter == 'archived': queryset = queryset.filter(active=False)
+        elif status_filter != 'all' and not include_inactive: queryset = queryset.filter(active=True)
+        return queryset
+    def destroy(self, request, *args, **kwargs):
+        instance=self.get_object()
+        referenced=(CourseOfferingFaculty.objects.filter(faculty=instance).exists() or ScheduleEntryFaculty.objects.filter(faculty=instance).exists() or FacultyArrangement.objects.filter(absent_faculty=instance).exists() or FacultyArrangement.objects.filter(substitute_faculty=instance).exists() or FacultyAvailability.objects.filter(faculty=instance).exists())
+        if referenced:
+            return Response({'detail':'This faculty member is used by academic or timetable records and cannot be permanently deleted.','can_archive':True}, status=status.HTTP_409_CONFLICT)
+        # A Faculty profile is an optional profile for a User account.  Do not
+        # cascade-delete the login when an otherwise-unused profile is removed.
+        # The model's historical CASCADE is retained for other code paths, so
+        # explicitly detach the account before deleting the profile.
+        if instance.user_id:
+            instance.user = None
+            instance.save(update_fields=['user', 'updated_at'])
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    @action(detail=True, methods=['post'], url_path='archive')
+    def archive(self, request, pk=None):
+        faculty=self.get_object(); faculty.active=False; faculty.save(update_fields=['active','updated_at']); return Response(self.get_serializer(faculty).data)
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        faculty=Faculty.objects.get(pk=pk); faculty.active=True; faculty.save(update_fields=['active','updated_at']); return Response(self.get_serializer(faculty).data)
     @action(detail=True, methods=['get','post'], url_path='availability')
     def availability(self, request, pk=None):
         faculty = self.get_object()
@@ -61,7 +113,7 @@ class FacultyViewSet(BaseViewSet):
         serializer.is_valid(raise_exception=True); serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 class FacultyAvailabilityViewSet(BaseViewSet): queryset=FacultyAvailability.objects.select_related('faculty','time_slot'); serializer_class=FacultyAvailabilitySerializer; filterset_fields=('faculty','weekday','is_available')
-class RoomViewSet(BaseViewSet): queryset=Room.objects.all(); serializer_class=RoomSerializer; filterset_fields=('building','floor','room_type','active'); search_fields=('code','building')
+class RoomViewSet(BaseViewSet): queryset=Room.objects.all(); serializer_class=RoomSerializer; filterset_fields=('building','floor','room_type','active','has_projector'); search_fields=('code','building')
 class RoomAvailabilityViewSet(BaseViewSet): queryset=RoomAvailability.objects.select_related('room','time_slot'); serializer_class=RoomAvailabilitySerializer; filterset_fields=('room','weekday','status')
 class TimeSlotTemplateViewSet(BaseViewSet): queryset=TimeSlotTemplate.objects.select_related('institution'); serializer_class=TimeSlotTemplateSerializer; filterset_fields=('institution',)
 class TimeSlotViewSet(BaseViewSet): queryset=TimeSlot.objects.select_related('template'); serializer_class=TimeSlotSerializer; filterset_fields=('template','is_break')
@@ -75,10 +127,14 @@ def me(request): return Response(UserSerializer(request.user).data)
 def dashboard_summary(request):
     session = AcademicSession.objects.filter(is_active=True).order_by('-start_date').first()
     semester = Semester.objects.filter(session=session).order_by('-number').first() if session else None
+    availability_restrictions = FacultyAvailability.objects.filter(is_available=False).count()
+    availability_configured = FacultyAvailability.objects.exists()
     return Response({'active_session': {'id':str(session.id),'name':session.name} if session else None,
         'active_semester': {'id':str(semester.id),'name':semester.name} if semester else None,
         'counts': {'programs':Program.objects.count(),'sections':Section.objects.count(),'faculty':Faculty.objects.count(),'rooms':Room.objects.count(),'courses':Course.objects.count(),'course_offerings':CourseOffering.objects.filter(active=True).count()},
-        'readiness': {'academic_session':bool(session),'sections':Section.objects.exists(),'courses':Course.objects.exists(),'faculty':Faculty.objects.exists(),'faculty_availability':FacultyAvailability.objects.exists(),'rooms':Room.objects.exists(),'time_slots':TimeSlot.objects.exists(),'course_offerings':CourseOffering.objects.filter(active=True).exists()}})
+        'readiness': {'academic_session':bool(session),'sections':Section.objects.exists(),'courses':Course.objects.exists(),'faculty':Faculty.objects.exists(),'faculty_availability':True,'rooms':Room.objects.exists(),'time_slots':TimeSlot.objects.exists(),'course_offerings':CourseOffering.objects.filter(active=True).exists()},
+        'faculty_availability_status': 'CONFIGURED' if availability_configured else 'DEFAULT',
+        'faculty_availability_restrictions': availability_restrictions})
 
 @api_view(['POST'])
 @permission_classes([RolePermission])
@@ -87,11 +143,25 @@ def import_data(request, action, kind=None):
     if kind not in SPECS or action not in ('preview','commit'): return Response({'detail':'Unsupported import'},status=404)
     upload=request.FILES.get('file')
     if not upload or not upload.name.lower().endswith(('.csv','.xlsx')): return Response({'detail':'Upload a CSV or XLSX file.'},status=400)
-    try: rows=rows_from_upload(upload); valid,errors=validate(kind,rows)
+    mode=str(request.data.get('import_mode','UPSERT')).strip().upper() if kind in ('courses','faculty') else 'CREATE_ONLY'
+    if mode not in ('CREATE_ONLY','UPSERT','REPLACE'): return Response({'detail':'Invalid course import mode.'},status=400)
+    try:
+        rows=rows_from_upload(upload)
+        valid,errors=(rows,[]) if kind=='faculty' else validate(kind,rows,mode)
     except Exception as exc: return Response({'detail':str(exc)},status=400)
     if kind=='faculty':
-        try: return Response(faculty_import_rows(rows,commit=action=='commit'), status=201 if action=='commit' else 200)
-        except Exception: return Response({'detail':'The uploaded Faculty file could not be processed.'},status=400)
+        try:
+            result=faculty_import_rows(rows,commit=action=='commit',mode=mode)
+            result.update({'total_rows':len(rows),'valid_rows':len(rows)-result['failed'],'invalid_rows':result['failed'],'create':result['created'],'update':result.get('updated',0),'skip':result.get('skipped',0),'archive':result.get('archive',0)})
+            return Response(result, status=201 if action=='commit' else 200)
+        except FacultyImportCommitError as exc:
+            logging.getLogger(__name__).exception('Faculty import commit failed at row=%s faculty=%s employee_code=%s', exc.row, exc.faculty_name, exc.employee_code)
+            return Response({'detail':'Faculty import failed.','row':exc.row,'faculty_name':exc.faculty_name,'employee_code':exc.employee_code,'error_type':exc.cause.__class__.__name__,'error':str(exc.cause)}, status=400)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
+        except Exception as exc:
+            logging.getLogger(__name__).exception('UNEXPECTED Faculty import commit failure')
+            raise
     if kind=='sections':
         try:
             result=section_import(rows,commit=action=='commit'); result.update({'total_rows':len(rows),'valid_rows':result['created'],'invalid_rows':result['failed']}); return Response(result,status=201 if action=='commit' else 200)
@@ -102,9 +172,11 @@ def import_data(request, action, kind=None):
         except Exception: return Response({'detail':'The uploaded Faculty Availability file could not be processed.'},status=400)
     if action=='preview':
         skipped=sum(1 for row in valid if row.get('_skip'))
-        return Response({'valid':not errors,'total_rows':len(rows),'valid_rows':len(valid)-skipped,'invalid_rows':len(errors),'skipped':skipped,'errors':errors,'rows':valid})
+        updates=sum(1 for row in valid if row.get('_update_id')); creates=sum(1 for row in valid if not row.get('_update_id') and not row.get('_skip'))
+        archive=Course.objects.filter(active=True).exclude(code__in={row['code'] for row in valid}).count() if kind=='courses' and mode=='REPLACE' and not errors else 0
+        return Response({'valid':not errors,'total_rows':len(rows),'valid_rows':len(valid)-skipped,'invalid_rows':len(errors),'skipped':skipped,'create':creates,'update':updates,'archive':archive,'warnings':0,'errors':errors,'rows':valid})
     if errors: return Response({'valid':False,'errors':errors},status=400)
-    try: result=commit(kind,rows)
+    try: result=commit(kind,rows,mode)
     except ValueError as exc: return Response({'valid':False,'errors':exc.args[0]},status=400)
     return Response(result,status=201)
 
@@ -114,9 +186,9 @@ def room_import_template(request):
     if not (request.user.is_superuser or request.user.role in WRITE_ROLES):
         return Response({'detail':'You do not have permission to import rooms.'}, status=403)
     workbook = Workbook(); sheet = workbook.active; sheet.title = 'Rooms'
-    sheet.append(['Room No.', 'Building', 'Floor', 'Capacity', 'Room Type', 'Active'])
-    sheet.append(['401', 'Main', '4', 60, 'Classroom', 'true'])
-    sheet.append(['402', 'Main', '4', 60, 'Classroom', 'true'])
+    sheet.append(['Room No.', 'Building', 'Floor', 'Capacity', 'Room Type', 'Projector', 'Active'])
+    sheet.append(['401', 'Main', '4', 60, 'Classroom', 'Yes', 'true'])
+    sheet.append(['402', 'Main', '4', 60, 'Classroom', 'No', 'true'])
     from io import BytesIO
     stream = BytesIO(); workbook.save(stream)
     return HttpResponse(stream.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition':'attachment; filename="rooms-import-template.xlsx"'})

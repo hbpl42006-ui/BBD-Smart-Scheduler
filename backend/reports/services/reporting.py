@@ -7,6 +7,7 @@ from common.models import TimeSlot
 from faculty.models import Faculty
 from rooms.models import Room, RoomAvailability
 from scheduling.models import ScheduleEntry, Timetable, TimetableVersion
+from faculty.models import FacultyArrangement
 from scheduling.services.validation import validate_entry
 
 
@@ -84,10 +85,16 @@ def room_utilization(request):
     if request.query_params.get('room'): rooms = rooms.filter(pk=request.query_params['room'])
     entries = list(_entries(request, version)) if version else []
     templates = {e.start_slot.template_id for e in entries} or set(TimeSlot.objects.filter(is_break=False).values_list('template_id', flat=True))
-    usable = sum(TimeSlot.objects.filter(template_id__in=templates, is_break=False).count() for _ in [0])
+    usable_slots = set(TimeSlot.objects.filter(template_id__in=templates, is_break=False).values_list('pk', flat=True))
+    usable = len(usable_slots)
+    occupied_periods=set()
+    for entry in entries:
+        if not entry.room_id: continue
+        ordered=list(TimeSlot.objects.filter(template_id=entry.start_slot.template_id,order__gte=entry.start_slot.order,is_break=False).order_by('order')[:entry.block_length])
+        occupied_periods.update((entry.room_id,entry.weekday,slot.pk) for slot in ordered)
     rows=[]
     for room in rooms:
-        used_entries=[e for e in entries if e.room_id==room.pk]; occupied=sum(e.block_length for e in used_entries); total=usable
+        used_entries=[e for e in entries if e.room_id==room.pk]; occupied=sum(1 for room_id,_,_ in occupied_periods if room_id==room.pk); total=usable
         rows.append({'room_id':str(room.pk),'room_no':room.code,'room_type':room.get_room_type_display(),'capacity':room.capacity,'total_available_slots':total,'occupied_slots':occupied,'free_slots':max(total-occupied,0),'utilization_percentage':round(occupied*100/total,2) if total else 0,'courses':sorted({e.course_offering.course.code for e in used_entries}),'sections':sorted({str(e.section) for e in used_entries})})
     return rows
 
@@ -134,18 +141,33 @@ def version_activity(request):
 
 def analytics(request):
     workload=faculty_workload(request); rooms=room_utilization(request); entries=section_timetable(request); allocation=course_allocation(request)
-    weekday=defaultdict(int); slots=defaultdict(int)
-    for row in entries: weekday[row['day']]+=row['block_length']; slots[row['time']]+=row['block_length']
-    return {'total_faculty':Faculty.objects.count(),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':len(entries),'room_utilization_percentage':round(sum(x['utilization_percentage'] for x in rooms)/len(rooms),2) if rooms else 0,'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots)}
+    weekday=defaultdict(int); slots=defaultdict(int); room_types=defaultdict(int); years=defaultdict(int); heatmap=defaultdict(int)
+    for row in entries:
+        weekday[row['day']]+=1; slots[row['time']]+=1; heatmap[f"{row['weekday']}:{row['time']}"]+=1
+    for room in Room.objects.filter(active=True): room_types[room.get_room_type_display()]+=1
+    for section in Section.objects.all(): years[f'Year {section.year}']+=section.student_strength
+    overall_utilization=round(sum(x['occupied_slots'] for x in rooms)*100/(sum(x['total_available_slots'] for x in rooms)),2) if rooms and sum(x['total_available_slots'] for x in rooms) else 0
+    return {'total_faculty':Faculty.objects.filter(user__isnull=False).count(),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':len(entries),'room_utilization_percentage':min(overall_utilization,100),'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots),'room_type_distribution':dict(room_types),'projector_distribution':{'Projector Available':Room.objects.filter(active=True,has_projector=True).count(),'No Projector':Room.objects.filter(active=True,has_projector=False).count()},'students_by_year':dict(years),'heatmap':dict(heatmap)}
 
 def free_rooms(request):
-    version=_version(request); weekday=int(request.query_params.get('weekday',0)); slot_id=request.query_params.get('time_slot') or request.query_params.get('start_slot'); required=int(request.query_params.get('capacity',0)); rooms=Room.objects.filter(active=True,capacity__gte=required)
+    version=_version(request); raw_weekday=request.query_params.get('weekday'); weekday=int(raw_weekday) if raw_weekday is not None else None; slot_id=request.query_params.get('time_slot') or request.query_params.get('start_slot'); required=int(request.query_params.get('capacity',0)); rooms=Room.objects.filter(active=True,capacity__gte=required)
     if request.query_params.get('room_type'): rooms=rooms.filter(room_type=request.query_params['room_type'])
+    if request.query_params.get('projector') in ('true','false'): rooms=rooms.filter(has_projector=request.query_params['projector']=='true')
     if version and slot_id:
         requested_slot=TimeSlot.objects.filter(pk=slot_id).first()
         if requested_slot:
             length=max(int(request.query_params.get('block_length',1)),1); slot_ids=list(TimeSlot.objects.filter(template=requested_slot.template,is_break=False,order__gte=requested_slot.order,order__lt=requested_slot.order+length).values_list('pk',flat=True))
-            occupied=ScheduleEntry.objects.filter(version=version,weekday=weekday,start_slot_id__in=slot_ids).values_list('room_id',flat=True)
-            blocked=RoomAvailability.objects.filter(time_slot_id__in=slot_ids,status__in=['BLOCKED','MAINTENANCE']).filter(weekday__isnull=True) | RoomAvailability.objects.filter(time_slot_id__in=slot_ids,status__in=['BLOCKED','MAINTENANCE'],weekday=weekday)
+            occupied=ScheduleEntry.objects.filter(version=version,start_slot_id__in=slot_ids);occupied=occupied.filter(weekday=weekday) if weekday is not None else occupied;occupied=occupied.values_list('room_id',flat=True)
+            blocked=RoomAvailability.objects.filter(time_slot_id__in=slot_ids,status__in=['BLOCKED','MAINTENANCE']).filter(weekday__isnull=True);blocked=blocked|RoomAvailability.objects.filter(time_slot_id__in=slot_ids,status__in=['BLOCKED','MAINTENANCE'],weekday=weekday) if weekday is not None else blocked|RoomAvailability.objects.filter(time_slot_id__in=slot_ids,status__in=['BLOCKED','MAINTENANCE'],weekday__isnull=False)
             rooms=rooms.exclude(pk__in=occupied).exclude(pk__in=blocked.values('room_id'))
-    return [{'room_id':str(r.pk),'room_no':r.code,'room_type':r.get_room_type_display(),'capacity':r.capacity,'building':r.building,'floor':r.floor} for r in rooms]
+    return [{'room_id':str(r.pk),'room_no':r.code,'room_type':r.get_room_type_display(),'capacity':r.capacity,'building':r.building,'floor':r.floor,'projector':'Yes' if r.has_projector else 'No'} for r in rooms]
+
+def faculty_arrangements(request):
+    qs=FacultyArrangement.objects.select_related('schedule_entry__start_slot','schedule_entry__course_offering__course','schedule_entry__section','schedule_entry__room','absent_faculty__user','substitute_faculty__user','created_by').prefetch_related('evidence').exclude(status='CANCELLED')
+    if request.user.role=='FACULTY': qs=qs.filter(substitute_faculty__user=request.user)
+    for key in ('arrangement_date','absent_faculty_id','substitute_faculty_id','status'):
+        if request.query_params.get(key): qs=qs.filter(**{key:request.query_params[key]})
+    if request.query_params.get('from'): qs=qs.filter(arrangement_date__gte=request.query_params['from'])
+    if request.query_params.get('to'): qs=qs.filter(arrangement_date__lte=request.query_params['to'])
+    def name(f): return (f'{f.user.first_name} {f.user.last_name}'.strip() if f.user else '') or f.name or f.initials or f.employee_code
+    return [{'arrangement_date':a.arrangement_date,'day':a.schedule_entry.get_weekday_display(),'time_slot':a.schedule_entry.start_slot.label,'section':str(a.schedule_entry.section),'course':a.schedule_entry.course_offering.course.code,'room':a.schedule_entry.room.code if a.schedule_entry.room else '','absent_faculty':name(a.absent_faculty),'arrangement_faculty':name(a.substitute_faculty),'status':a.status,'attendance':'Uploaded' if a.evidence.exists() else 'Pending','created_by':a.created_by.email,'created_at':a.created_at} for a in qs.order_by('-arrangement_date','-created_at')]

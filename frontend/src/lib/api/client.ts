@@ -16,6 +16,7 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
+    if (config.url?.includes('/generation-runs/')) console.log('[GEN CLIENT] sending generation POST', { url: `${config.baseURL ?? ''}${config.url}`, method: config.method, payload: config.data });
     return config;
   },
   async (error) => {
@@ -25,9 +26,11 @@ apiClient.interceptors.request.use(
 
 apiClient.interceptors.response.use(
   (response) => {
+    if (response.config.url?.includes('/generation-runs/')) console.log('[GEN CLIENT] generation response', { url: response.config.url, status: response.status, data: response.data });
     return response;
   },
   async (error) => {
+    if (error.config?.url?.includes('/generation-runs/')) console.error('[GEN CLIENT] generation request failed', { url: error.config.url, status: error.response?.status, data: error.response?.data, message: error.message });
     if (error.response?.status === 401 && typeof window !== 'undefined' && !error.config?.url?.includes('/auth/')) {
       const refresh = localStorage.getItem('refresh_token');
       if (refresh && !error.config?.headers?.['X-Retry']) {

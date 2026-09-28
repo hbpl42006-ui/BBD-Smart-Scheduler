@@ -26,17 +26,29 @@ class TimetableList(APIView):
         with transaction.atomic():
             t=s.save(created_by=request.user); version=TimetableVersion.objects.create(timetable=t,version_no=1,created_by=request.user); record('TIMETABLE_CREATED',request.user,timetable=t,version=version,entity_type='Timetable',entity_id=t.pk,new_data={'title':t.title}); record('VERSION_CREATED',request.user,timetable=t,version=version,entity_type='TimetableVersion',entity_id=version.pk)
         return Response(TimetableSerializer(t).data,status=201)
+class TimetableDetail(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request,timetable_id):
+        timetable=Timetable.objects.filter(pk=timetable_id).select_related('semester','department').first()
+        if timetable is None: return Response({'detail':'Timetable not found.'},status=404)
+        return Response(TimetableSerializer(timetable).data)
 class VersionList(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request,timetable_id): return Response(TimetableVersionSerializer(TimetableVersion.objects.filter(timetable_id=timetable_id),many=True).data)
     def post(self,request,timetable_id):
         if not RolePermission().has_permission(request,self): return Response({'detail':'Permission denied'},403)
-        source=TimetableVersion.objects.get(timetable_id=timetable_id,pk=request.data.get('source_version')) if request.data.get('source_version') else TimetableVersion.objects.filter(timetable_id=timetable_id).order_by('-version_no').first()
         with transaction.atomic():
-            version=TimetableVersion.objects.create(timetable_id=timetable_id,version_no=TimetableVersion.objects.filter(timetable_id=timetable_id).count()+1,created_by=request.user,previous_version=source)
-            for entry in source.entries.all():
-                clone=ScheduleEntry.objects.create(version=version,section=entry.section,course_offering=entry.course_offering,weekday=entry.weekday,start_slot=entry.start_slot,block_length=entry.block_length,room=entry.room,entry_type=entry.entry_type,locked=entry.locked,note=entry.note); clone.faculty_assignments.set(entry.faculty_assignments.all())
-            record('VERSION_CLONED',request.user,timetable=version.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk,metadata={'source_version':str(source.pk)})
+            timetable=Timetable.objects.filter(pk=timetable_id).first()
+            if timetable is None: return Response({'detail':'Timetable not found.'},status=404)
+            source_id=request.data.get('source_version')
+            source=TimetableVersion.objects.filter(timetable=timetable,pk=source_id).first() if source_id else TimetableVersion.objects.filter(timetable=timetable).order_by('-version_no').first()
+            if source_id and source is None: return Response({'detail':'Source timetable version not found.'},status=404)
+            next_version_no=(TimetableVersion.objects.filter(timetable=timetable).order_by('-version_no').values_list('version_no',flat=True).first() or 0)+1
+            version=TimetableVersion.objects.create(timetable=timetable,version_no=next_version_no,created_by=request.user,previous_version=source)
+            if source:
+                for entry in source.entries.all():
+                    clone=ScheduleEntry.objects.create(version=version,section=entry.section,course_offering=entry.course_offering,weekday=entry.weekday,start_slot=entry.start_slot,block_length=entry.block_length,room=entry.room,entry_type=entry.entry_type,delivery_mode=entry.delivery_mode,locked=entry.locked,note=entry.note); clone.faculty_assignments.set(entry.faculty_assignments.all())
+            record('VERSION_CLONED' if source else 'VERSION_CREATED',request.user,timetable=timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk,metadata={'source_version':str(source.pk)} if source else {'initial_draft':True})
         return Response(TimetableVersionSerializer(version).data,status=201)
 class EntryList(APIView):
     permission_classes=[IsAuthenticated]
@@ -93,23 +105,23 @@ class SectionTimetable(APIView):
     def get(self,request,version_id):
         section_id=request.query_params.get('section')
         if getattr(request.user,'role',None)==Role.FACULTY and not ScheduleEntryFaculty.objects.filter(schedule_entry__version_id=version_id,schedule_entry__section_id=section_id,faculty__user=request.user).exists(): return Response({'detail':'You do not have access to this section timetable.'},status=403)
-        qs=ScheduleEntry.objects.filter(version_id=version_id,section_id=section_id).select_related('start_slot','room','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
+        qs=ScheduleEntry.objects.filter(version_id=version_id,section_id=section_id).select_related('start_slot','room','course_offering__course').prefetch_related('faculty_assignments__faculty__user');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
 class FacultyTimetable(SectionTimetable):
     def get(self,request,version_id):
         qs=ScheduleEntry.objects.filter(version_id=version_id,faculty_assignments__faculty_id=request.query_params.get('faculty')).distinct().select_related('start_slot','room','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
 class MyFacultyTimetable(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request):
+        
         faculty=getattr(request.user,'faculty_profile',None)
         if not faculty:return Response({'detail':'No Faculty profile is linked to this account.'},status=404)
-        timetable=Timetable.objects.filter(active=True,department=faculty.department).order_by('-updated_at').first()
-        if not timetable:return Response({'faculty':{'id':str(faculty.id),'name':faculty.initials or faculty.employee_code},'entries':[]})
-        version=TimetableVersion.objects.filter(timetable=timetable,status='PUBLISHED').order_by('-version_no').first()
-        if not version:return Response({'faculty':{'id':str(faculty.id),'name':faculty.initials or faculty.employee_code},'timetable':{'id':str(timetable.id),'title':timetable.title},'entries':[],'message':'No published timetable is available yet.'})
-        qs=ScheduleEntry.objects.filter(version=version,faculty_assignments__faculty=faculty).distinct().select_related('start_slot','room','section','course_offering__course')
+        version=TimetableVersion.objects.filter(timetable__active=True,timetable__department=faculty.department,status='PUBLISHED',entries__faculty_assignments__faculty=faculty).select_related('timetable__academic_session','timetable__semester').distinct().order_by('-published_at','-version_no').first()
+        if not version:return Response({'faculty':{'id':str(faculty.id),'name':faculty.initials or faculty.employee_code},'entries':[],'message':'No published timetable is available yet.'})
+        timetable=version.timetable
+        qs=ScheduleEntry.objects.filter(version=version,faculty_assignments__faculty=faculty).distinct().select_related('start_slot','room','section','course_offering__course').prefetch_related('faculty_assignments__faculty__user')
         user_name=f'{faculty.user.first_name} {faculty.user.last_name}'.strip() if faculty.user else ''
-        sections=list(version.entries.filter(faculty_assignments__faculty=faculty).select_related('section__program','section__semester').values('section_id','section__name','section__program__name','section__semester__name').distinct())
-        return Response({'faculty':{'id':str(faculty.id),'name':user_name or faculty.initials or faculty.employee_code,'department':faculty.department.name},'timetable':{'id':str(timetable.id),'title':timetable.title,'academic_session':timetable.academic_session.name,'semester':timetable.semester.name},'version':{'id':str(version.id),'version_no':version.version_no,'status':version.status},'sections':[{'id':str(row['section_id']),'name':row['section__name'],'program_name':row['section__program__name'],'semester_name':row['section__semester__name']} for row in sections],'entries':ScheduleEntrySerializer(qs,many=True).data})
+        sections=list(version.entries.filter(faculty_assignments__faculty=faculty).select_related('section__program','section__semester').values('section_id','section__name','section__year','section__program__name','section__semester__name','section__semester__number').distinct())
+        return Response({'faculty':{'id':str(faculty.id),'name':user_name or faculty.initials or faculty.employee_code,'department':faculty.department.name},'timetable':{'id':str(timetable.id),'title':timetable.title,'academic_session':timetable.academic_session.name,'semester':timetable.semester.name},'version':{'id':str(version.id),'version_no':version.version_no,'status':version.status},'sections':[{'id':str(row['section_id']),'name':row['section__name'],'year':row['section__year'],'program_name':row['section__program__name'],'semester_name':row['section__semester__name'],'semester_number':row['section__semester__number']} for row in sections],'entries':ScheduleEntrySerializer(qs,many=True).data})
 class RoomAllocation(SectionTimetable):
     def get(self,request,version_id):
         qs=ScheduleEntry.objects.filter(version_id=version_id).select_related('start_slot','room','section','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
@@ -200,7 +212,7 @@ class CreateDraft(APIView):
             latest=TimetableVersion.objects.select_for_update().filter(timetable=source.timetable).order_by('-version_no').first()
             version=TimetableVersion.objects.create(timetable=source.timetable,version_no=(latest.version_no+1 if latest else 1),created_by=request.user,previous_version=source,notes=f'Created from version {source.version_no}')
             for entry in source.entries.all():
-                clone=ScheduleEntry.objects.create(version=version,section=entry.section,course_offering=entry.course_offering,weekday=entry.weekday,start_slot=entry.start_slot,block_length=entry.block_length,room=entry.room,entry_type=entry.entry_type,locked=entry.locked,note=entry.note)
+                clone=ScheduleEntry.objects.create(version=version,section=entry.section,course_offering=entry.course_offering,weekday=entry.weekday,start_slot=entry.start_slot,block_length=entry.block_length,room=entry.room,entry_type=entry.entry_type,delivery_mode=entry.delivery_mode,locked=entry.locked,note=entry.note)
                 ScheduleEntryFaculty.objects.bulk_create([ScheduleEntryFaculty(schedule_entry=clone,faculty=a.faculty,role=a.role) for a in entry.faculty_assignments.all()])
             record('TIMETABLE_DRAFT_CREATED',request.user,timetable=source.timetable,version=version,entity_type='TimetableVersion',entity_id=version.pk,metadata={'source_version_id':str(source.pk),'new_version_id':str(version.pk),'source_version_number':source.version_no,'new_version_number':version.version_no})
         return Response(TimetableVersionSerializer(version).data,status=201)

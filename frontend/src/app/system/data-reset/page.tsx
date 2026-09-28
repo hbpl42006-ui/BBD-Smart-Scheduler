@@ -1,0 +1,18 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AdminLayout } from '@/components/layout/AdminLayout';
+import { Header } from '@/components/layout/Header';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { apiClient } from '@/lib/api/client';
+import { me } from '@/lib/api/auth';
+export default function Page() {
+  const router = useRouter(); const [mode, setMode] = useState('ACADEMIC_DATA_ONLY'); const [preview, setPreview] = useState<{ will_delete: Record<string, number>; preserved: Record<string, string> } | null>(null); const [confirmation, setConfirmation] = useState(''); const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { me().then((user) => { if (!user.is_staff && user.role !== 'SUPER_ADMIN') router.replace('/dashboard'); }).catch(() => router.replace('/login')); }, [router]);
+  const showPreview = async () => { setBusy(true); setMessage(''); try { const { data } = await apiClient.post('/admin/data-reset/preview/', { mode }); setPreview(data); } catch { setMessage('Unable to load reset preview.'); } finally { setBusy(false); } };
+  const execute = async () => { setBusy(true); setMessage(''); try { await apiClient.post('/admin/data-reset/execute/', { mode, confirmation }); router.push('/academic-setup'); } catch (error) { const detail = (error as { response?: { data?: { detail?: string } } }).response?.data?.detail; setMessage(detail || 'Reset was not completed.'); } finally { setBusy(false); } };
+  const expected = mode === 'SCHEDULING_ONLY' ? 'RESET SCHEDULING DATA' : 'RESET ACADEMIC DATA';
+  return <AdminLayout><Header title="Data Reset" /><main className="mx-auto max-w-3xl space-y-5 p-5 sm:p-8"><h1 className="text-2xl font-semibold">Academic Data Reset</h1><Card><CardContent className="space-y-4 p-5"><p className="rounded bg-red-50 p-4 text-sm text-red-800">This permanently removes the selected academic and scheduling dataset. User accounts and system configuration are preserved.</p><label className="block text-sm">Select Mode<select className="mt-1 h-9 w-full rounded border px-2" value={mode} onChange={(e) => { setMode(e.target.value); setPreview(null); setConfirmation(''); }}><option value="ACADEMIC_DATA_ONLY">Academic Data Only</option><option value="SCHEDULING_ONLY">Scheduling Only</option></select></label><Button disabled={busy} onClick={() => void showPreview()}>Preview Reset</Button></CardContent></Card>{preview && <Card><CardHeader><CardTitle>Records that would be deleted</CardTitle></CardHeader><CardContent><table className="w-full text-sm"><tbody>{Object.entries(preview.will_delete).map(([name, count]) => <tr className="border-b" key={name}><td className="p-2">{name.replaceAll('_', ' ')}</td><td className="p-2 text-right">{count}</td></tr>)}</tbody></table><p className="mt-4 text-sm text-slate-600">Preserved: Users, roles, permissions, and system configuration.</p><div className="mt-5 space-y-3 rounded border border-red-200 p-4"><p className="font-medium text-red-800">Final confirmation required</p><p className="text-sm">Type exactly: <strong>{expected}</strong></p><Input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} placeholder={expected} /><Button variant="destructive" disabled={busy || confirmation !== expected} onClick={() => void execute()}>Permanently Reset Data</Button></div></CardContent></Card>}{message && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{message}</p>}</main></AdminLayout>;
+}

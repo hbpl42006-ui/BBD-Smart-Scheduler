@@ -17,6 +17,7 @@ class Room(models.Model):
     capacity = models.PositiveIntegerField()
     room_type = models.CharField(max_length=50, choices=RoomType.choices, default=RoomType.CLASSROOM)
     facilities = models.JSONField(default=dict, blank=True)
+    has_projector = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     
     created_at = models.DateTimeField(auto_now_add=True)

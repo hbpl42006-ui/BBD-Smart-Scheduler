@@ -164,11 +164,22 @@
 .signature-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 12px; text-align: center; font-size: 10px; line-height: 1.2; }
 .signature-footer div { padding-top: 5px; }
 .empty-official { padding: 40px; text-align: center; }
+/* Official BBDU sheet: keep the document dense and readable on screen and in print. */
+.official-sheet { min-width: 980px; padding: 10px; }
+.official-heading h1 { font-family: 'Times New Roman', Times, serif; font-size: 22px; }
+.official-heading h2 { font-size: 16px; }
+.official-heading h3 { font-size: 13px; font-weight: 700; }
+.official-heading p { font-size: 12px; font-weight: 700; }
+.official-table th, .official-table td, .course-table th, .course-table td { border-color: #000; }
+.official-table td { height: 46px; font-size: 10px; }
+.course-table th, .course-table td { padding: 3px 4px; line-height: 1.15; }
+.signature-footer { min-height: 58px; margin-top: 14px; align-items: end; }
+.signature-footer div { padding-top: 20px; }
 @media print {
   .no-print { display: none !important; }
   @page { size: A4 landscape; margin: 5mm; }
   body { background: white !important; }
-  .official-sheet { width: 100%; max-width: none; min-height: 0; padding: 4px; border: 1px solid #000; }
+  .official-sheet { width: 100%; min-width: 0; max-width: none; min-height: 0; padding: 4px; border: 1px solid #000; }
   .official-table, .coordinator-table, .course-table, .signature-footer { break-inside: avoid; page-break-inside: avoid; }
   .faculty-page { padding: 0 !important; margin: 0 !important; }
   .faculty-page > .official-sheet { width: 100%; max-width: 100%; margin: 0; overflow: visible; }

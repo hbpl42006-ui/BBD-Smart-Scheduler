@@ -49,7 +49,16 @@ class AnalyticsView(ReportView):
     report_name='analytics'; builder=staticmethod(reporting.analytics)
     @extend_schema(responses=inline_serializer(name='ReportAnalytics',fields={'total_faculty':serializers.IntegerField(),'total_rooms':serializers.IntegerField(),'total_sections':serializers.IntegerField(),'scheduled_classes':serializers.IntegerField(),'room_utilization_percentage':serializers.FloatField(),'average_faculty_workload':serializers.FloatField(),'under_scheduled_courses':serializers.IntegerField(),'weekday_load':serializers.DictField(),'time_slot_load':serializers.DictField()}))
     def get(self,request): return super().get(request)
-class FreeRoomsView(ReportView): report_name='free-rooms'; builder=staticmethod(reporting.free_rooms)
+class FreeRoomsView(ReportView):
+    report_name='free-rooms'; builder=staticmethod(reporting.free_rooms)
+    def get(self,request):
+        raw=request.query_params.get('weekday')
+        if raw is not None:
+            try: weekday=int(raw)
+            except (TypeError,ValueError): return Response({'detail':'weekday must be an integer from 0 (Monday) through 6 (Sunday).'},status=400)
+            if weekday not in range(7): return Response({'detail':'weekday must be an integer from 0 (Monday) through 6 (Sunday).'},status=400)
+        return super().get(request)
+class FacultyArrangementsView(ReportView): report_name='faculty-arrangements'; builder=staticmethod(reporting.faculty_arrangements)
 
 class HealthView(APIView):
     permission_classes=[]

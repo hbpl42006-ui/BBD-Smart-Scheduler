@@ -10,7 +10,13 @@ class ScheduleEntrySerializer(serializers.ModelSerializer):
     faculty_assignments=serializers.SerializerMethodField()
     course=serializers.SerializerMethodField(); section_name=serializers.CharField(source='section.name',read_only=True); room_code=serializers.CharField(source='room.code',read_only=True)
     class Meta: model=ScheduleEntry; fields='__all__'; extra_fields=('course','section_name','room_code')
-    def get_course(self,obj): return {'id':str(obj.course_offering.course_id),'code':obj.course_offering.course.code,'name':obj.course_offering.course.name,'short_code':obj.course_offering.course.short_code}
+    def validate(self, attrs):
+        section=attrs.get('section',self.instance.section if self.instance else None)
+        weekday=attrs.get('weekday',self.instance.weekday if self.instance else None)
+        if section is not None and weekday is not None:
+            attrs['delivery_mode']='ONLINE' if section.delivery_policy=='HYBRID' and weekday!=section.offline_weekday else 'OFFLINE'
+        return attrs
+    def get_course(self,obj): return {'id':str(obj.course_offering.course_id),'code':obj.course_offering.course.code,'name':obj.course_offering.course.name,'short_code':obj.course_offering.course.short_code,'credit':obj.course_offering.course.credit}
     def get_faculty_assignments(self,obj):
         assignments=[]
         for assignment in obj.faculty_assignments.select_related('faculty__user').all():
@@ -18,7 +24,7 @@ class ScheduleEntrySerializer(serializers.ModelSerializer):
             name=''
             if faculty.user:
                 name=f'{faculty.user.first_name} {faculty.user.last_name}'.strip()
-            name=name or faculty.initials or faculty.employee_code or 'Unnamed faculty'
+            name=name or faculty.name or faculty.initials or faculty.employee_code or 'Unnamed faculty'
             assignments.append({'faculty_id':str(assignment.faculty_id),'role':assignment.role,'name':name,'initials':faculty.initials})
         return assignments
 class ScheduleEntryFacultySerializer(serializers.ModelSerializer):

@@ -55,8 +55,10 @@ def notify(*,event_type,recipients,title,message,action_url='/my-timetable',meta
         pref=_preference(user)
         if not pref.in_app_enabled and not (email and pref.email_enabled): continue
         n=Notification.objects.create(recipient=user,actor=actor,event_type=event_type,title=title,message=message,action_url=action_url,metadata=metadata or {})
-        if email and pref.email_enabled and user.email:
-            delivery=NotificationDelivery.objects.create(notification=n,channel='EMAIL',recipient_address=user.email)
+        faculty_email = getattr(getattr(user, 'faculty_profile', None), 'email', None)
+        recipient_email = faculty_email or (None if getattr(user, 'faculty_profile', None) else user.email)
+        if email and pref.email_enabled and recipient_email:
+            delivery=NotificationDelivery.objects.create(notification=n,channel='EMAIL',recipient_address=recipient_email)
             from django.db import transaction
             transaction.on_commit(lambda delivery=delivery: send_delivery(delivery))
         if pref.whatsapp_enabled and pref.whatsapp_opt_in:
@@ -69,13 +71,46 @@ def notify(*,event_type,recipients,title,message,action_url='/my-timetable',meta
         created.append(n)
     return created
 
+def notify_arrangement_event(arrangement, event, actor=None, old_substitute=None):
+    """Create durable in-app/email notices without making delivery part of the write."""
+    from faculty.arrangement_views import faculty_name
+    entry=arrangement.schedule_entry
+    date=arrangement.arrangement_date.strftime('%d %b %Y')
+    details=(f'Date: {date}\nDay: {entry.get_weekday_display()}\nTime: {entry.start_slot.label}\n'
+             f'Course: {entry.course_offering.course.code}\nCourse Name: {entry.course_offering.course.name}\n'
+             f'Section: {entry.section}\nRoom: {entry.room.code if entry.room else "—"}\n'
+             f'Original Faculty: {faculty_name(arrangement.absent_faculty)}')
+    if event=='ASSIGNED':
+        title='New Arrangement Class Assigned'; message=f'You have been assigned an arrangement class.\n\n{details}\n\nAfter completing the arranged class, upload the attendance sheet (JPG/PNG/WEBP/PDF) from My Arrangements.'; recipients=[arrangement.substitute_faculty.user] if arrangement.substitute_faculty.user_id else []
+    elif event=='REASSIGNED':
+        title='Arrangement Class Reassigned'; message=f'The arrangement class scheduled for {date}, {entry.start_slot.label}, {entry.course_offering.course.code} / {entry.section} has been reassigned and is no longer assigned to you.\n\n{details}'; recipients=[old_substitute.user] if old_substitute and old_substitute.user_id else []
+    elif event=='CANCELLED':
+        title='Arrangement Class Cancelled'; message=f'Your arrangement class has been cancelled.\n\n{details}'; recipients=[arrangement.substitute_faculty.user] if arrangement.substitute_faculty.user_id else []
+    else: return []
+    return notify(event_type=f'ARRANGEMENT_{event}',recipients=recipients,title=title,message=message,action_url='/faculty-arrangements',metadata={'arrangement_id':str(arrangement.pk)},actor=actor)
+
+def notify_arrangement_after_commit(arrangement, event, actor=None, old_substitute=None):
+    from django.db import transaction
+    transaction.on_commit(lambda: notify_arrangement_event(arrangement, event, actor, old_substitute))
+
 def _entry_snapshot(entry):
     faculty=tuple(sorted(str(x) for x in entry.faculty_assignments.values_list('faculty_id',flat=True)))
     return {'section':str(entry.section_id),'course_offering':str(entry.course_offering_id),'course_code':entry.course_offering.course.code,'course_name':entry.course_offering.course.name,'weekday':entry.weekday,'start_slot':str(entry.start_slot_id),'start_label':entry.start_slot.label,'block_length':entry.block_length,'room':str(entry.room_id) if entry.room_id else None,'room_label':entry.room.code if entry.room else '','faculty':faculty}
 def publish_diff(old_version,new_version):
     old_entries=list(old_version.entries.select_related('course_offering__course','start_slot','room').prefetch_related('faculty_assignments')) if old_version else []
     new_entries=list(new_version.entries.select_related('course_offering__course','start_slot','room').prefetch_related('faculty_assignments'))
-    old={ (str(e.section_id),str(e.course_offering_id)): _entry_snapshot(e) for e in old_entries}; new={ (str(e.section_id),str(e.course_offering_id)): _entry_snapshot(e) for e in new_entries}
+    # A section can contain multiple entries for the same course. Match the
+    # nth occurrence of each section/course pair, rather than allowing a
+    # dictionary key to overwrite earlier periods. The mutable schedule
+    # fields (day, slot, room, etc.) remain part of the compared snapshot.
+    def keyed_entries(entries):
+        grouped={}
+        for entry in sorted(entries, key=lambda e: (str(e.section_id), str(e.course_offering_id), e.weekday, str(e.start_slot_id))):
+            pair=(str(entry.section_id), str(entry.course_offering_id))
+            occurrence=len(grouped.setdefault(pair, []))
+            grouped[pair].append(((pair[0], pair[1], occurrence), _entry_snapshot(entry)))
+        return {key: snapshot for rows in grouped.values() for key, snapshot in rows}
+    old=keyed_entries(old_entries); new=keyed_entries(new_entries)
     changes=[]
     for key in sorted(set(old)|set(new)):
         if key not in old: changes.append({'type':'ADDED','new':new[key]})

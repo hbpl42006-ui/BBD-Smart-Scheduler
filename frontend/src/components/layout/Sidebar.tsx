@@ -32,80 +32,33 @@ import {
 } from '@/components/ui/sidebar';
 
 const navItems = [
-  { title: 'My Timetable', url: '/my-timetable', icon: CalendarDays },
-  {
-    title: 'Faculty Arrangements',
-    url: '/faculty-arrangements',
-    icon: CalendarDays,
-    items: [
-      { title: 'Arrangements', url: '/faculty-arrangements' },
-      { title: 'Faculty Availability', url: '/faculty-arrangements/availability' },
-    ],
-  },
-  {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Timetables',
-    url: '/timetables',
-    icon: Table,
-  },
-  { title: 'Approvals', url: '/approvals', icon: FileText },
-  {
-    title: 'Room Allocation',
-    url: '/room-allocation',
-    icon: Building,
-  },
-  {
-    title: 'Academic Setup',
-    url: '/academic-setup',
-    icon: Settings,
-    items: [
-      { title: 'Sessions', url: '/academic-setup/sessions' },
-      { title: 'Semesters', url: '/academic-setup/semesters' },
-      { title: 'Programs', url: '/academic-setup/programs' },
-      { title: 'Sections', url: '/academic-setup/sections' },
-    ],
-  },
-  {
-    title: 'Courses',
-    url: '/courses',
-    icon: BookOpen,
-  },
-  {
-    title: 'Faculty',
-    url: '/faculty',
-    icon: Users,
-  },
-  {
-    title: 'Rooms & Labs',
-    url: '/rooms-labs',
-    icon: Building,
-  },
-  {
-    title: 'Time Slots',
-    url: '/time-slots',
-    icon: Clock,
-  },
-  {
-    title: 'Notifications',
-    url: '/notifications',
-    icon: Bell,
-  },
-  {
-    title: 'Reports',
-    url: '/reports',
-    icon: FileText,
-  },
+  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, group: 'Workspace' },
+  { title: 'My Timetable', url: '/my-timetable', icon: CalendarDays, group: 'Workspace' },
+  { title: 'Academic Setup', url: '/academic-setup', icon: Settings, group: 'Academic Setup', items: [
+    { title: 'Sessions', url: '/academic-setup/sessions' }, { title: 'Semesters', url: '/academic-setup/semesters' },
+    { title: 'Programs', url: '/academic-setup/programs' }, { title: 'Courses', url: '/courses' },
+    { title: 'Sections', url: '/academic-setup/sections' }, { title: 'Faculty', url: '/faculty' },
+    { title: 'Rooms & Labs', url: '/rooms-labs' }, { title: 'Time Slots', url: '/time-slots' },
+    { title: 'Course Offerings', url: '/course-offerings' },
+  ] },
+  { title: 'Faculty Availability', url: '/faculty-arrangements/availability', icon: Clock, group: 'Scheduling' },
+  { title: 'Timetables', url: '/timetables', icon: Table, group: 'Scheduling' },
+  { title: 'Room Allocation', url: '/room-allocation', icon: Building, group: 'Scheduling' },
+  { title: 'Faculty Arrangements', url: '/faculty-arrangements', icon: CalendarDays, group: 'Operations', items: [
+    { title: 'Arrangements', url: '/faculty-arrangements' },
+    { title: 'Faculty Availability', url: '/faculty-arrangements/availability' },
+  ] },
+  { title: 'Reports', url: '/reports', icon: FileText, group: 'Reporting' },
+  { title: 'Notifications', url: '/notifications', icon: Bell, group: 'System' },
+  { title: 'Data Reset', url: '/system/data-reset', icon: Settings, group: 'System' },
+  { title: 'Approvals', url: '/approvals', icon: FileText, group: 'System' },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const [role, setRole] = React.useState<Role>();
   React.useEffect(() => { me().then(user => setRole(user.role as Role)).catch(() => setRole(undefined)); }, []);
-  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' || role === 'FACULTY') && (item.url !== '/approvals' || canReviewTimetables(role)));
+  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' || role === 'FACULTY') && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
 
   return (
     <Sidebar className="no-print">
@@ -120,8 +73,9 @@ export function AppSidebar() {
           <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-widest text-slate-400">Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleItems.map((item) => (
+              {visibleItems.map((item, index) => (
                 <SidebarMenuItem key={item.title}>
+                  {(index===0 || visibleItems[index-1].group!==item.group) && <SidebarGroupLabel className="mt-3 px-2 text-[10px] uppercase tracking-widest text-slate-400">{item.group}</SidebarGroupLabel>}
                   <SidebarMenuButton isActive={pathname === item.url || !!(item.items && pathname.startsWith(item.url))}>
                     <Link href={item.url} className="flex w-full items-center gap-2">
                       <item.icon className="h-4 w-4" />

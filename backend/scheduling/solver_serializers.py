@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from scheduling.models import GenerationRun
 class GenerationConfigSerializer(serializers.Serializer):
-    mode=serializers.ChoiceField(choices=['FILL_GAPS','REBUILD_UNLOCKED'],default='FILL_GAPS');section_ids=serializers.ListField(child=serializers.UUIDField(),required=False);offering_rules=serializers.ListField(child=serializers.JSONField(),required=False);max_solve_seconds=serializers.IntegerField(min_value=1,max_value=60,required=False);random_seed=serializers.IntegerField(required=False);soft_constraints=serializers.JSONField(required=False)
+    mode=serializers.ChoiceField(choices=['FILL_GAPS','REBUILD_UNLOCKED'],default='FILL_GAPS');section_ids=serializers.ListField(child=serializers.UUIDField(),required=False);offering_rules=serializers.ListField(child=serializers.JSONField(),required=False);max_solve_seconds=serializers.IntegerField(min_value=1,max_value=60,required=False);random_seed=serializers.IntegerField(required=False);soft_constraints=serializers.JSONField(required=False);allow_remainder_period=serializers.BooleanField(required=False,default=False)
 class ErrorDetailSerializer(serializers.Serializer):
     code=serializers.CharField();message=serializers.CharField()
 class ErrorResponseSerializer(serializers.Serializer):
@@ -10,6 +10,8 @@ class GenerationPreflightResponseSerializer(serializers.Serializer):
     valid=serializers.BooleanField()
     errors=ErrorDetailSerializer(many=True,required=False)
     warnings=ErrorDetailSerializer(many=True,required=False)
+    mode=serializers.ChoiceField(choices=['FILL_GAPS','REBUILD_UNLOCKED'],required=False)
+    statistics=serializers.DictField(child=serializers.IntegerField(),required=False)
 class GenerationApplySerializer(serializers.Serializer):
     pass
 class GenerationApplyResponseSerializer(serializers.Serializer):
