@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -15,7 +16,13 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from drf_spectacular.types import OpenApiTypes
 from rest_framework import serializers
 from django.utils import timezone
+from common.models import TimeSlot
 from accounts.models import Role
+from scheduling.weekdays import WORKING_DAYS, WEEKEND_DAYS, WEEKEND_ERROR_CODE, WEEKDAY_NAMES
+
+def _weekend_entry_conflicts(entries):
+    return [{'code':WEEKEND_ERROR_CODE,'entry_id':str(row['id']),'weekday':row['weekday'],'day':WEEKDAY_NAMES[row['weekday']],'message':'Classes can only be scheduled Monday through Friday.'}
+            for row in entries.filter(weekday__in=WEEKEND_DAYS).values('id','weekday')]
 
 class TimetableList(APIView):
     permission_classes=[IsAuthenticated]
@@ -43,6 +50,9 @@ class VersionList(APIView):
             source_id=request.data.get('source_version')
             source=TimetableVersion.objects.filter(timetable=timetable,pk=source_id).first() if source_id else TimetableVersion.objects.filter(timetable=timetable).order_by('-version_no').first()
             if source_id and source is None: return Response({'detail':'Source timetable version not found.'},status=404)
+            if source:
+                weekend_conflicts=_weekend_entry_conflicts(source.entries)
+                if weekend_conflicts:return Response({'code':WEEKEND_ERROR_CODE,'conflicts':weekend_conflicts,'detail':'Cannot clone a version containing Saturday or Sunday entries.'},status=400)
             next_version_no=(TimetableVersion.objects.filter(timetable=timetable).order_by('-version_no').values_list('version_no',flat=True).first() or 0)+1
             version=TimetableVersion.objects.create(timetable=timetable,version_no=next_version_no,created_by=request.user,previous_version=source)
             if source:
@@ -109,6 +119,55 @@ class SectionTimetable(APIView):
 class FacultyTimetable(SectionTimetable):
     def get(self,request,version_id):
         qs=ScheduleEntry.objects.filter(version_id=version_id,faculty_assignments__faculty_id=request.query_params.get('faculty')).distinct().select_related('start_slot','room','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
+
+def _faculty_weekly_payload(faculty, version):
+    timetable = version.timetable
+    qs = (ScheduleEntry.objects.filter(version=version, faculty_assignments__faculty=faculty)
+          .distinct().select_related('start_slot', 'room', 'section__program',
+                                     'section__semester', 'course_offering__course')
+          .prefetch_related('faculty_assignments__faculty__user'))
+    entries = list(qs)
+    entry_data = ScheduleEntrySerializer(entries, many=True).data
+    for item, entry in zip(entry_data, entries):
+        item.update({
+            'weekday_name': entry.get_weekday_display(),
+            'start_slot_label': entry.start_slot.label,
+            'start_slot_order': entry.start_slot.order,
+            'section_name': entry.section.name,
+            'section_year': entry.section.year,
+            'program_name': entry.section.program.name,
+            'semester_name': entry.section.semester.name,
+        })
+    first_slot = entries[0].start_slot if entries else None
+    slot_qs = TimeSlot.objects.filter(template_id=first_slot.template_id).order_by('order') if first_slot else TimeSlot.objects.none()
+    slots = [{'id': str(slot.id), 'label': slot.label, 'order': slot.order,
+              'start_time': slot.start_time.isoformat(), 'end_time': slot.end_time.isoformat(),
+              'is_break': slot.is_break} for slot in slot_qs]
+    faculty_name = (f'{faculty.user.first_name} {faculty.user.last_name}'.strip()
+                    if faculty.user else '') or faculty.name or faculty.initials or faculty.employee_code
+    total_periods = sum(entry.block_length for entry in entries)
+    return {
+        'faculty': {'id': str(faculty.id), 'name': faculty_name,
+                    'employee_code': faculty.employee_code, 'department': faculty.department.name},
+        'timetable': {'id': str(timetable.id), 'title': timetable.title,
+                      'academic_session': timetable.academic_session.name, 'semester': timetable.semester.name},
+        'version': {'id': str(version.id), 'version_no': version.version_no, 'status': version.status},
+        'time_slots': slots, 'entries': entry_data,
+        'summary': {'total_periods': total_periods, 'entry_count': len(entry_data),
+                    'lecture_periods': sum(entry.block_length for entry in entries if entry.entry_type == 'LECTURE'),
+                    'practical_periods': sum(entry.block_length for entry in entries if entry.entry_type == 'PRACTICAL'),
+                    'course_count': len({str(entry.course_offering.course_id) for entry in entries}),
+                    'section_count': len({str(entry.section_id) for entry in entries}),
+                    'online_periods': sum(entry.block_length for entry in entries if entry.delivery_mode == 'ONLINE'),
+                    'offline_periods': sum(entry.block_length for entry in entries if entry.delivery_mode == 'OFFLINE')},
+    }
+
+def _published_version_for_faculty(faculty):
+    return (TimetableVersion.objects.filter(timetable__active=True,
+            timetable__department=faculty.department, status='PUBLISHED',
+            entries__faculty_assignments__faculty=faculty)
+            .select_related('timetable__academic_session', 'timetable__semester', 'timetable__institution')
+            .distinct().order_by('-published_at', '-version_no').first())
 class MyFacultyTimetable(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request):
@@ -122,6 +181,42 @@ class MyFacultyTimetable(APIView):
         user_name=f'{faculty.user.first_name} {faculty.user.last_name}'.strip() if faculty.user else ''
         sections=list(version.entries.filter(faculty_assignments__faculty=faculty).select_related('section__program','section__semester').values('section_id','section__name','section__year','section__program__name','section__semester__name','section__semester__number').distinct())
         return Response({'faculty':{'id':str(faculty.id),'name':user_name or faculty.initials or faculty.employee_code,'department':faculty.department.name},'timetable':{'id':str(timetable.id),'title':timetable.title,'academic_session':timetable.academic_session.name,'semester':timetable.semester.name},'version':{'id':str(version.id),'version_no':version.version_no,'status':version.status},'sections':[{'id':str(row['section_id']),'name':row['section__name'],'year':row['section__year'],'program_name':row['section__program__name'],'semester_name':row['section__semester__name'],'semester_number':row['section__semester__number']} for row in sections],'entries':ScheduleEntrySerializer(qs,many=True).data})
+
+class FacultyWeeklyTimetable(APIView):
+    permission_classes = [IsAuthenticated]
+    def _department_scope(self, request):
+        if request.user.is_superuser or request.user.role == Role.SUPER_ADMIN:
+            return None
+        if request.user.role == Role.HOD_OR_DEAN_APPROVER:
+            return Faculty.objects.filter(department__faculties__user=request.user).values_list('department_id', flat=True).distinct()
+        return ()
+    def get(self, request, faculty_id=None):
+        role = request.user.role
+        is_self_endpoint = request.path.rstrip('/').endswith('/me')
+        if is_self_endpoint:
+            if role != Role.FACULTY or request.user.is_superuser:
+                return Response({'detail': 'The self workload endpoint is restricted to Faculty users.'}, status=403)
+            faculty = getattr(request.user, 'faculty_profile', None)
+            if not faculty:
+                return Response({'code': 'FACULTY_PROFILE_NOT_LINKED', 'detail': 'No Faculty profile is linked to this account.'}, status=404)
+        elif role == Role.FACULTY and not request.user.is_superuser:
+            return Response({'detail': 'Faculty users must use the self workload endpoint.'}, status=403)
+        elif role in {Role.SUPER_ADMIN, Role.HOD_OR_DEAN_APPROVER} or request.user.is_superuser:
+            scope = self._department_scope(request)
+            selectable = Faculty.objects.select_related('department', 'user').filter(active=True)
+            if scope is not None:
+                selectable = selectable.filter(department_id__in=scope)
+            if not faculty_id:
+                return Response([{'id': str(f.pk), 'name': (f'{f.user.first_name} {f.user.last_name}'.strip() if f.user else '') or f.name or f.initials or f.employee_code, 'employee_code': f.employee_code, 'department': f.department.name} for f in selectable.order_by('department__name', 'name', 'employee_code')])
+            faculty = selectable.filter(pk=faculty_id).first()
+            if not faculty:
+                return Response({'detail': 'Faculty not found in your permitted scope.'}, status=404)
+        else:
+            return Response({'detail': 'You do not have permission to view Faculty workloads.'}, status=403)
+        version = _published_version_for_faculty(faculty)
+        if not version:
+            return Response({'faculty': {'id': str(faculty.id), 'name': faculty.name or faculty.initials or faculty.employee_code}, 'entries': [], 'message': 'No published timetable is available yet.'})
+        return Response(_faculty_weekly_payload(faculty, version))
 class RoomAllocation(SectionTimetable):
     def get(self,request,version_id):
         qs=ScheduleEntry.objects.filter(version_id=version_id).select_related('start_slot','room','section','course_offering__course');return Response({'version':version_id,'entries':ScheduleEntrySerializer(qs,many=True).data})
@@ -130,14 +225,45 @@ class AvailableRooms(APIView):
     def get(self,request,version_id):
         from rooms.models import Room
         from common.models import TimeSlot
-        weekday=request.query_params.get('weekday'); start_id=request.query_params.get('start_slot'); block=int(request.query_params.get('block_length',1)); start=TimeSlot.objects.filter(pk=start_id).first(); slots=list(TimeSlot.objects.filter(template=start.template,order__gte=start.order).order_by('order')[:block]) if start else []; occupied=set()
+        try: weekday=int(request.query_params.get('weekday'))
+        except (TypeError,ValueError): return Response({'detail':'A valid weekday is required.'},status=400)
+        if weekday not in WORKING_DAYS:return Response({'code':WEEKEND_ERROR_CODE,'detail':'Classes can only be scheduled Monday through Friday.'},status=400)
+        start_id=request.query_params.get('start_slot'); block=int(request.query_params.get('block_length',1)); start=TimeSlot.objects.filter(pk=start_id).first(); slots=list(TimeSlot.objects.filter(template=start.template,order__gte=start.order).order_by('order')[:block]) if start else []; occupied=set()
+        section_id=request.query_params.get('section'); year=request.query_params.get('year'); offering_id=request.query_params.get('course_offering')
+        if section_id:
+            from academics.models import Section
+            section=Section.objects.select_related('program').filter(pk=section_id).first()
+            if not section:return Response({'detail':'Section not found.'},status=400)
+            year=section.year
+        try: year=int(year) if year not in (None,'') else None
+        except (TypeError,ValueError): return Response({'detail':'Year must be between 1 and 4.'},status=400)
+        if year is not None and year not in (1,2,3,4):return Response({'detail':'Year must be between 1 and 4.'},status=400)
         for entry in ScheduleEntry.objects.filter(version_id=version_id,weekday=weekday).select_related('start_slot'):
             used=TimeSlot.objects.filter(template=entry.start_slot.template,order__gte=entry.start_slot.order).order_by('order').values_list('pk',flat=True)[:entry.block_length]
             if set(used)&{x.pk for x in slots}: occupied.add(entry.room_id)
-        qs=Room.objects.filter(active=True,capacity__gte=request.query_params.get('capacity',0)).exclude(pk__in=occupied); room_type=request.query_params.get('room_type');
+        qs=Room.objects.select_related('reserved_program').filter(active=True,capacity__gte=request.query_params.get('capacity',0)).exclude(pk__in=occupied)
+        from rooms.services.eligibility import room_section_error, required_course_room_code, required_mtech_room_code
+        offering=None
+        if offering_id and section_id:
+            from academics.models import CourseOffering
+            offering=CourseOffering.objects.select_related('course').filter(pk=offering_id,section_id=section_id).first()
+        if year is not None:
+            year_filter=Q(allowed_year__isnull=True)|Q(allowed_year=year)
+            if section_id and offering:
+                year_filter|=Q(eligibility_exceptions__active=True,eligibility_exceptions__allow=True,eligibility_exceptions__program_id=section.program_id,eligibility_exceptions__year=year,eligibility_exceptions__course=offering.course)
+            qs=qs.filter(year_filter)
+        if section_id:
+            required_code=required_mtech_room_code(section)
+            fixed_code=required_course_room_code(offering) if offering else None
+            if required_code or fixed_code:qs=qs.filter(code=required_code or fixed_code)
+            reservation_filter=Q(exclusive_reservation=False) | Q(reserved_program_id=section.program_id,reserved_year=section.year)
+            if offering:
+                reservation_filter|=Q(eligibility_exceptions__active=True,eligibility_exceptions__allow=True,eligibility_exceptions__program_id=section.program_id,eligibility_exceptions__year=section.year,eligibility_exceptions__course=offering.course)
+            qs=qs.filter(reservation_filter)
+        room_type=request.query_params.get('room_type');
         if room_type: qs=qs.filter(room_type=room_type)
         if slots: qs=qs.exclude(availabilities__weekday=weekday,availabilities__time_slot__in=slots,availabilities__status__in=['BLOCKED','MAINTENANCE'])
-        return Response([{'id':str(r.id),'code':r.code,'building':r.building,'floor':r.floor,'capacity':r.capacity,'room_type':r.room_type} for r in qs])
+        return Response([{'id':str(r.id),'code':r.code,'building':r.building,'floor':r.floor,'capacity':r.capacity,'room_type':r.room_type,'allowed_year':r.allowed_year,'reserved_program':str(r.reserved_program_id) if r.reserved_program_id else None,'reserved_program_name':r.reserved_program.name if r.reserved_program_id else None,'reserved_year':r.reserved_year,'exclusive_reservation':r.exclusive_reservation} for r in qs.distinct() if not section_id or not room_section_error(r,section,offering.course if offering else None,required_course_room_code(offering) if offering else None)])
 class ValidateVersion(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request,version_id): return Response(validate_version(TimetableVersion.objects.get(pk=version_id)))
@@ -209,6 +335,8 @@ class CreateDraft(APIView):
         with transaction.atomic():
             source=TimetableVersion.objects.select_for_update().select_related('timetable').get(pk=version_id)
             if source.status!='PUBLISHED': return Response({'detail':'Only published versions can be used to create a new draft.'},400)
+            weekend_conflicts=_weekend_entry_conflicts(source.entries)
+            if weekend_conflicts:return Response({'code':WEEKEND_ERROR_CODE,'conflicts':weekend_conflicts,'detail':'Cannot create a draft from a version containing Saturday or Sunday entries.'},status=400)
             latest=TimetableVersion.objects.select_for_update().filter(timetable=source.timetable).order_by('-version_no').first()
             version=TimetableVersion.objects.create(timetable=source.timetable,version_no=(latest.version_no+1 if latest else 1),created_by=request.user,previous_version=source,notes=f'Created from version {source.version_no}')
             for entry in source.entries.all():

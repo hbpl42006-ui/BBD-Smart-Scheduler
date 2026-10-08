@@ -1,11 +1,12 @@
-from datetime import timedelta
-from django.db import transaction
+from datetime import date, datetime, timedelta
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import FileResponse
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils import timezone
 from accounts.models import Role
 from common.models import TimeSlot
 from scheduling.models import ScheduleEntry, TimetableVersion
@@ -14,27 +15,68 @@ from .models import Faculty, FacultyAvailability, FacultyArrangement, Arrangemen
 MANAGERS={Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.TIMETABLE_COORDINATOR,Role.HOD_OR_DEAN_APPROVER}
 def manager(user): return user.is_superuser or user.role in MANAGERS
 def faculty_name(f): return (f'{f.user.first_name} {f.user.last_name}'.strip() if f.user else '') or f.name or f.initials or f.employee_code
+def arrangement_class_end(entry, arrangement_date):
+    slots=occupied_slots(entry)
+    if len(slots)!=max(1,entry.block_length):return None
+    end_local=datetime.combine(arrangement_date,slots[-1].end_time)
+    return timezone.make_aware(end_local,timezone.get_current_timezone())
 def arrangement_row(a):
     e=a.schedule_entry
-    return {'id':str(a.pk),'schedule_entry':str(a.schedule_entry_id),'arrangement_date':a.arrangement_date,'day':e.get_weekday_display(),'weekday':e.weekday,'time_slot':e.start_slot.label,'course_code':e.course_offering.course.code,'course_name':e.course_offering.course.name,'section':str(e.section),'section_id':str(e.section_id),'room':e.room.code if e.room else '','absent_faculty':faculty_name(a.absent_faculty),'absent_faculty_id':str(a.absent_faculty_id),'substitute_faculty':faculty_name(a.substitute_faculty),'substitute_faculty_id':str(a.substitute_faculty_id),'reason':a.reason,'status':a.status,'attendance':'Uploaded' if a.evidence.exists() else 'Pending','created_by':a.created_by.email,'created_at':a.created_at}
+    evidence=list(a.evidence.all()) if 'evidence' in getattr(a,'_prefetched_objects_cache',{}) else list(a.evidence.order_by('-uploaded_at')[:1])
+    latest=max(evidence,key=lambda item:item.uploaded_at) if evidence else None
+    class_end=arrangement_class_end(e,a.arrangement_date)
+    return {'id':str(a.pk),'schedule_entry':str(a.schedule_entry_id),'arrangement_date':a.arrangement_date,'day':e.get_weekday_display(),'weekday':e.weekday,'time_slot':e.start_slot.label,'class_end_at':class_end.isoformat() if class_end else None,'timezone':timezone.get_current_timezone_name(),'course_code':e.course_offering.course.code,'course_name':e.course_offering.course.name,'section':str(e.section),'section_id':str(e.section_id),'room':e.room.code if e.room else '','absent_faculty':faculty_name(a.absent_faculty),'absent_faculty_id':str(a.absent_faculty_id),'substitute_faculty':faculty_name(a.substitute_faculty),'substitute_faculty_id':str(a.substitute_faculty_id),'reason':a.reason,'status':a.status,'attendance':'Uploaded' if latest else 'Pending','evidence':{'id':str(latest.pk),'uploaded_at':latest.uploaded_at,'original_filename':latest.original_filename,'view_url':f'/api/faculty-arrangements/{a.pk}/attendance/{latest.pk}/view/'} if latest else None,'created_by':a.created_by.email,'created_at':a.created_at}
 
 def scoped(qs,user):
-    if user.role=='FACULTY': return qs.filter(substitute_faculty__user=user)
+    if user.role=='FACULTY': return qs.filter(Q(substitute_faculty__user=user)|Q(absent_faculty__user=user)).distinct()
     if user.role=='HOD_OR_DEAN_APPROVER': return qs.filter(schedule_entry__version__timetable__department__faculties__user=user).distinct()
     return qs
-def candidates(date, entry, user):
-    busy=ScheduleEntry.objects.filter(version__status='PUBLISHED',weekday=entry.weekday,start_slot=entry.start_slot,section__isnull=False).values_list('faculty_assignments__faculty_id',flat=True)
-    arrangements=FacultyArrangement.objects.filter(arrangement_date=date,status__in=['ASSIGNED','COMPLETED'],schedule_entry__weekday=entry.weekday,schedule_entry__start_slot=entry.start_slot).values_list('substitute_faculty_id',flat=True)
-    blocked=set(Faculty.objects.filter(availabilities__weekday=entry.weekday,availabilities__time_slot=entry.start_slot,availabilities__is_available=False).values_list('pk',flat=True))
-    assigned=entry.faculty_assignments.values_list('faculty_id',flat=True)
-    qs=Faculty.objects.select_related('user','department').exclude(pk__in=assigned).exclude(pk__in=busy).exclude(pk__in=arrangements).exclude(pk__in=blocked)
-    return [{'id':str(f.pk),'name':faculty_name(f),'employee_code':f.employee_code,'department':f.department.name,
-             'normal_classes_today':ScheduleEntry.objects.filter(version__status='PUBLISHED',weekday=entry.weekday,faculty_assignments__faculty=f).distinct().count(),
-             'arrangements_today':FacultyArrangement.objects.filter(arrangement_date=date,substitute_faculty=f,status__in=['ASSIGNED','COMPLETED']).count(),
-             'arrangements_this_week':FacultyArrangement.objects.filter(arrangement_date__gte=date-timedelta(days=date.weekday()),arrangement_date__lte=date+timedelta(days=6-date.weekday()),substitute_faculty=f,status__in=['ASSIGNED','COMPLETED']).count()} for f in qs.order_by('name','employee_code')]
+def occupied_slots(entry, slot_cache=None):
+    from common.models import TimeSlot
+    slots=(slot_cache or {}).get(entry.start_slot.template_id)
+    if slots is None:slots=list(TimeSlot.objects.filter(template_id=entry.start_slot.template_id).order_by('order'))
+    start=next((index for index,item in enumerate(slots) if item.pk==entry.start_slot_id),None)
+    if start is None:return []
+    selected=[]
+    for slot in slots[start:]:
+        if slot.is_break or (selected and slot.order!=selected[-1].order+1):break
+        selected.append(slot)
+        if len(selected)>=max(1,entry.block_length):break
+    return selected if len(selected)==max(1,entry.block_length) else []
+
+def candidates(day, entry, user):
+    from common.models import TimeSlot
+    relevant_entries=list(ScheduleEntry.objects.filter(version__status='PUBLISHED',weekday=entry.weekday).select_related('start_slot').prefetch_related('faculty_assignments'))
+    relevant_arrangements=list(FacultyArrangement.objects.filter(arrangement_date=day,status__in=['ASSIGNED','COMPLETED'],schedule_entry__weekday=entry.weekday).select_related('schedule_entry__start_slot'))
+    template_ids={entry.start_slot.template_id}|{item.start_slot.template_id for item in relevant_entries}|{item.schedule_entry.start_slot.template_id for item in relevant_arrangements}
+    slot_cache={template_id:[] for template_id in template_ids}
+    for slot in TimeSlot.objects.filter(template_id__in=template_ids).order_by('template_id','order'):slot_cache[slot.template_id].append(slot)
+    slots=occupied_slots(entry,slot_cache)
+    if not slots:return []
+    slot_ids=[slot.pk for slot in slots]
+    assigned=set(entry.faculty_assignments.values_list('faculty_id',flat=True))
+    regular=set()
+    for scheduled in relevant_entries:
+        if {slot.pk for slot in occupied_slots(scheduled,slot_cache)} & set(slot_ids):
+            regular.update(assignment.faculty_id for assignment in scheduled.faculty_assignments.all())
+    arranged=set()
+    for item in relevant_arrangements:
+        if {s.pk for s in occupied_slots(item.schedule_entry,slot_cache)} & set(slot_ids):arranged.add(item.substitute_faculty_id)
+    unavailable=set(FacultyAvailability.objects.filter(weekday=entry.weekday,time_slot_id__in=slot_ids,is_available=False).values_list('faculty_id',flat=True))
+    busy=regular|arranged|unavailable|assigned
+    eligible_qs=Faculty.objects.filter(active=True).exclude(pk__in=busy)
+    if user.role=='FACULTY' and not manager(user):eligible_qs=eligible_qs.filter(user__is_active=True,user__role=Role.FACULTY)
+    eligible=list(eligible_qs.select_related('user','department').order_by('name','employee_code'))
+    ids=[item.pk for item in eligible]
+    today_counts=dict(ScheduleEntry.objects.filter(version__status='PUBLISHED',weekday=entry.weekday,faculty_assignments__faculty_id__in=ids).values('faculty_assignments__faculty_id').annotate(count=Count('id')).values_list('faculty_assignments__faculty_id','count'))
+    arrangement_counts=dict(FacultyArrangement.objects.filter(arrangement_date=day,status__in=['ASSIGNED','COMPLETED'],substitute_faculty_id__in=ids).values('substitute_faculty_id').annotate(count=Count('id')).values_list('substitute_faculty_id','count'))
+    week_start=day-timedelta(days=day.weekday());week_end=week_start+timedelta(days=6)
+    week_counts=dict(FacultyArrangement.objects.filter(arrangement_date__gte=week_start,arrangement_date__lte=week_end,status__in=['ASSIGNED','COMPLETED'],substitute_faculty_id__in=ids).values('substitute_faculty_id').annotate(count=Count('id')).values_list('substitute_faculty_id','count'))
+    return [{'id':str(f.pk),'name':faculty_name(f),'employee_code':f.employee_code,'department':f.department.name,'normal_classes_today':today_counts.get(f.pk,0),'arrangements_today':arrangement_counts.get(f.pk,0),'arrangements_this_week':week_counts.get(f.pk,0)} for f in eligible]
 
 def validate_arrangement(data, user, date, absent, entry, substitute, reserved=None):
     if not entry or entry.version.status!='PUBLISHED': return 'Schedule entry is not from a published timetable.'
+    if date.weekday()>=5:return 'Weekend dates are not valid working days.'
     if date.weekday()!=entry.weekday: return 'Arrangement date does not match the timetable weekday.'
     if not entry.faculty_assignments.filter(faculty=absent).exists(): return 'Absent faculty is not assigned to this schedule entry.'
     if absent==substitute: return 'Substitute faculty must differ from absent faculty.'
@@ -51,17 +93,35 @@ class ArrangementView(APIView):
             if request.query_params.get(key): qs=qs.filter(**{key:request.query_params[key]})
         if request.query_params.get('from'): qs=qs.filter(arrangement_date__gte=request.query_params['from'])
         if request.query_params.get('to'): qs=qs.filter(arrangement_date__lte=request.query_params['to'])
-        return Response([arrangement_row(a) for a in qs.order_by('-arrangement_date','schedule_entry__weekday','schedule_entry__start_slot__order')])
+        rows=[]
+        for a in qs.order_by('-arrangement_date','schedule_entry__weekday','schedule_entry__start_slot__order'):
+            row=arrangement_row(a)
+            row['is_arrangement_faculty']=a.substitute_faculty.user_id==request.user.id
+            rows.append(row)
+        return Response(rows)
     def post(self,request):
-        if not manager(request.user): return Response({'detail':'You do not have permission to create arrangements.'},status=403)
-        data=request.data; entry=ScheduleEntry.objects.filter(pk=data.get('schedule_entry'),version__status='PUBLISHED').first(); absent=Faculty.objects.filter(pk=data.get('absent_faculty')).first(); substitute=Faculty.objects.filter(pk=data.get('substitute_faculty')).first()
+        self_service=request.user.role=='FACULTY' and not manager(request.user)
+        if not manager(request.user) and not self_service: return Response({'detail':'You do not have permission to create arrangements.','code':'PERMISSION_DENIED'},status=403)
+        data=request.data
+        entry_query=ScheduleEntry.objects.select_related('version','start_slot').filter(pk=data.get('schedule_entry',data.get('schedule_entry_id')),version__status='PUBLISHED')
+        if self_service:entry_query=entry_query.filter(version__timetable__active=True)
+        entry=entry_query.first()
+        absent=getattr(request.user,'faculty_profile',None) if self_service else Faculty.objects.filter(pk=data.get('absent_faculty')).first()
+        substitute=Faculty.objects.filter(pk=data.get('substitute_faculty',data.get('arrangement_faculty_id')),active=True).first()
         if not entry or not absent or not substitute:return Response({'detail':'A published schedule entry and valid faculty are required.'},status=400)
-        from datetime import date
-        try: day=date.fromisoformat(str(data.get('arrangement_date')))
-        except ValueError:return Response({'detail':'arrangement_date must be YYYY-MM-DD.'},status=400)
+        try: day=date.fromisoformat(str(data.get('arrangement_date',data.get('date'))))
+        except (TypeError,ValueError):return Response({'detail':'arrangement_date must be YYYY-MM-DD.','code':'INVALID_CLASS_DATE'},status=400)
+        if self_service and day<date.today():return Response({'detail':'Past class dates cannot be arranged.','code':'INVALID_CLASS_DATE'},status=400)
+        if self_service and not entry.faculty_assignments.filter(faculty=absent).exists():return Response({'detail':'This is not one of your assigned classes.','code':'NOT_YOUR_CLASS'},status=403)
         error=validate_arrangement(data,request.user,day,absent,entry,substitute)
-        if error:return Response({'detail':error},status=400)
-        a=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=day,absent_faculty=absent,substitute_faculty=substitute,reason=data.get('reason',''),created_by=request.user)
+        if error:
+            code='ARRANGEMENT_ALREADY_EXISTS' if 'already exists' in error else 'SUBSTITUTE_MUST_DIFFER' if 'must differ' in error else 'FACULTY_NOT_AVAILABLE' if 'unavailable' in error else 'INVALID_CLASS_DATE' if 'weekday' in error or 'Weekend' in error else 'INVALID_ARRANGEMENT'
+            return Response({'detail':error,'code':code},status=400)
+        try:
+            with transaction.atomic():
+                a=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=day,absent_faculty=absent,substitute_faculty=substitute,reason=data.get('reason',''),created_by=request.user)
+        except IntegrityError:
+            return Response({'detail':'An arrangement already exists for this class and date.','code':'ARRANGEMENT_ALREADY_EXISTS'},status=400)
         from notifications.services import notify_arrangement_after_commit
         notify_arrangement_after_commit(a,'ASSIGNED',request.user)
         return Response(arrangement_row(a),status=201)
@@ -124,13 +184,28 @@ class ArrangementCancelView(APIView):
 class AvailableFacultyView(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request):
-        if not manager(request.user): return Response({'detail':'Permission denied.'},status=403)
-        from datetime import date
+        self_service=request.user.role=='FACULTY' and not manager(request.user)
+        if not manager(request.user) and not self_service: return Response({'detail':'Permission denied.'},status=403)
         try: day=date.fromisoformat(str(request.query_params['date']))
         except (KeyError,ValueError): return Response({'detail':'A valid date is required.'},status=400)
-        entry=ScheduleEntry.objects.filter(pk=request.query_params.get('schedule_entry'),version__status='PUBLISHED').first()
+        entry_query=ScheduleEntry.objects.filter(pk=request.query_params.get('schedule_entry'),version__status='PUBLISHED')
+        if self_service:entry_query=entry_query.filter(version__timetable__active=True)
+        entry=entry_query.first()
         if not entry:return Response({'detail':'Published schedule entry not found.'},status=404)
+        if self_service:
+            own=getattr(request.user,'faculty_profile',None)
+            if not own or not entry.faculty_assignments.filter(faculty=own).exists():return Response({'detail':'This is not one of your assigned classes.','code':'NOT_YOUR_CLASS'},status=403)
+        if self_service and (day<date.today() or day.weekday()>=5 or day.weekday()!=entry.weekday):return Response({'detail':'Choose a future working date matching the class weekday.','code':'INVALID_CLASS_DATE'},status=400)
         return Response(candidates(day,entry,request.user))
+
+class MyArrangementClassesView(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request):
+        if request.user.role!='FACULTY':return Response({'detail':'Faculty role required.'},status=403)
+        faculty=getattr(request.user,'faculty_profile',None)
+        if not faculty:return Response({'detail':'No Faculty profile is linked to this account.'},status=404)
+        qs=ScheduleEntry.objects.filter(version__status='PUBLISHED',version__timetable__active=True,faculty_assignments__faculty=faculty,weekday__lt=5).select_related('start_slot__template','course_offering__course','section','room').distinct().order_by('weekday','start_slot__order')
+        return Response([{'schedule_entry':str(e.pk),'weekday':e.weekday,'day':e.get_weekday_display(),'time_slot':{'label':e.start_slot.label,'start_time':e.start_slot.start_time.strftime('%H:%M'),'end_time':e.start_slot.end_time.strftime('%H:%M')},'course':{'code':e.course_offering.course.code,'name':e.course_offering.course.name},'section':{'id':str(e.section_id),'name':str(e.section)},'room':e.room.code if e.room else None,'delivery_mode':e.delivery_mode,'period_count':e.block_length,'original_faculty':faculty_name(faculty)} for e in qs])
 
 class AvailabilityMatrixView(APIView):
     permission_classes=[IsAuthenticated]
@@ -190,13 +265,48 @@ class ArrangementSummaryView(APIView):
 class ArrangementEvidenceView(APIView):
     permission_classes=[IsAuthenticated]
     def post(self,request,arrangement_id):
-        a=scoped(FacultyArrangement.objects.select_related('substitute_faculty__user'),request.user).filter(pk=arrangement_id).first()
-        if not a or a.substitute_faculty.user_id!=request.user.id:return Response({'detail':'Only the assigned substitute may upload evidence.'},status=403)
         f=request.FILES.get('file'); allowed={'image/jpeg','image/png','image/webp','application/pdf'}
-        if not f or f.size>10*1024*1024 or f.content_type not in allowed:return Response({'detail':'Upload a JPG, PNG, WEBP, or PDF up to 10 MB.'},status=400)
-        e=ArrangementAttendanceEvidence.objects.create(arrangement=a,file=f,uploaded_by=request.user,original_filename=f.name,mime_type=f.content_type,file_size=f.size);return Response({'id':str(e.pk),'status':'Uploaded'},status=201)
+        with transaction.atomic():
+            a=scoped(FacultyArrangement.objects.select_for_update().select_related('substitute_faculty__user','schedule_entry__start_slot__template'),request.user).filter(pk=arrangement_id).first()
+            if not a or a.substitute_faculty.user_id!=request.user.id:return Response({'detail':'Only the assigned substitute may upload evidence.'},status=403)
+            if a.status!='ASSIGNED':return Response({'code':'ARRANGEMENT_NOT_ACTIVE','detail':'Attendance can be uploaded only for an assigned arrangement.'},status=400)
+            if a.evidence.exists():return Response({'code':'ATTENDANCE_ALREADY_UPLOADED','detail':'Attendance has already been uploaded for this arrangement.'},status=409)
+            available_after=arrangement_class_end(a.schedule_entry,a.arrangement_date)
+            if available_after is None:return Response({'code':'CLASS_END_TIME_UNAVAILABLE','detail':'The class end time could not be determined for this arrangement.'},status=400)
+            if timezone.now()<available_after:return Response({'code':'ATTENDANCE_UPLOAD_TOO_EARLY','detail':'Attendance can be uploaded only after the arranged class has ended.','available_after':available_after.isoformat()},status=400)
+            if not f or f.size>10*1024*1024 or f.content_type not in allowed:return Response({'detail':'Upload a JPG, PNG, WEBP, or PDF up to 10 MB.'},status=400)
+            e=ArrangementAttendanceEvidence.objects.create(arrangement=a,file=f,uploaded_by=request.user,original_filename=f.name,mime_type=f.content_type,file_size=f.size)
+        from notifications.services import notify_arrangement_attendance_after_commit
+        notify_arrangement_attendance_after_commit(a,e,request.user)
+        return Response({'id':str(e.pk),'status':'Uploaded','uploaded_at':e.uploaded_at,'original_filename':e.original_filename,'view_url':f'/api/faculty-arrangements/{a.pk}/attendance/{e.pk}/view/'},status=201)
     def get(self,request,arrangement_id,evidence_id):
-        if not manager(request.user) or request.user.role not in {Role.SUPER_ADMIN,Role.ACADEMIC_ADMIN,Role.TIMETABLE_COORDINATOR,Role.HOD_OR_DEAN_APPROVER}:return Response({'detail':'Evidence access is restricted.'},status=403)
-        e=ArrangementAttendanceEvidence.objects.filter(pk=evidence_id,arrangement_id=arrangement_id).first()
+        e=ArrangementAttendanceEvidence.objects.select_related('arrangement__absent_faculty__user','arrangement__substitute_faculty__user').filter(pk=evidence_id,arrangement_id=arrangement_id).first()
         if not e:return Response({'detail':'Evidence not found.'},status=404)
-        return FileResponse(e.file.open('rb'),content_type=e.mime_type)
+        allowed=manager(request.user) or e.arrangement.absent_faculty.user_id==request.user.id or e.arrangement.substitute_faculty.user_id==request.user.id
+        if not allowed:return Response({'detail':'You do not have permission to view this attendance evidence.'},status=403)
+        return FileResponse(e.file.open('rb'),content_type=e.mime_type,as_attachment=request.query_params.get('download')=='1',filename=e.original_filename)
+
+class ReceivedArrangementAttendanceView(APIView):
+    permission_classes=[IsAuthenticated]
+    def get(self,request):
+        if request.user.role!=Role.FACULTY:return Response({'detail':'This endpoint is available to Faculty users only.'},status=403)
+        faculty=getattr(request.user,'faculty_profile',None)
+        if not faculty:return Response({'detail':'No Faculty profile is linked to this account.'},status=404)
+        evidence=ArrangementAttendanceEvidence.objects.filter(arrangement__absent_faculty=faculty).select_related(
+            'arrangement__absent_faculty__user','arrangement__substitute_faculty__user',
+            'arrangement__schedule_entry__start_slot','arrangement__schedule_entry__course_offering__course',
+            'arrangement__schedule_entry__section',
+        ).order_by('-uploaded_at')
+        results=[]
+        for item in evidence:
+            arrangement=item.arrangement; entry=arrangement.schedule_entry
+            results.append({
+                'id':str(item.pk),'arrangement_id':str(arrangement.pk),'date':arrangement.arrangement_date,
+                'time_slot':{'label':entry.start_slot.label,'start_time':entry.start_slot.start_time,'end_time':entry.start_slot.end_time},
+                'course':{'code':entry.course_offering.course.code,'name':entry.course_offering.course.name},
+                'section':{'id':str(entry.section_id),'name':entry.section.name},
+                'original_faculty':{'id':str(arrangement.absent_faculty_id),'name':faculty_name(arrangement.absent_faculty)},
+                'arrangement_faculty':{'id':str(arrangement.substitute_faculty_id),'name':faculty_name(arrangement.substitute_faculty)},
+                'attendance_status':'UPLOADED','evidence':{'id':str(item.pk),'original_filename':item.original_filename,'mime_type':item.mime_type,'file_size':item.file_size,'uploaded_at':item.uploaded_at,'view_url':f'/api/faculty-arrangements/{arrangement.pk}/attendance/{item.pk}/view/'},
+            })
+        return Response({'count':len(results),'results':results})

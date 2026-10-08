@@ -3,19 +3,77 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api/client';
 
-type Row = { row: number; status?: string; session?: string; semester?: string; course?: string; section?: string; weekly_periods?: number; employee_code?: string; faculty_name?: string; room?: string; action?: string };
+type Row = { row: number; status?: string; session?: string; semester?: string; course?: string; section?: string; activity_type?: string; weekly_periods?: number; employee_code?: string; faculty?: string; faculty_name?: string; room?: string; action?: string };
 type Result = { total?: number; valid?: number; invalid?: number; warnings?: number; warning_details?: { row: number; message: string }[]; rows?: Row[]; errors?: { row: number; message: string }[]; offerings_created?: number; faculty_assignments_created?: number; detail?: string };
 
 export function CourseOfferingImportDialog({ onComplete }: { onComplete: () => void }) {
-  const [file, setFile] = useState<File | null>(null), [preview, setPreview] = useState<Result | null>(null), [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<Result | null>(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const tableLabels = ['Status', 'Session', 'Semester', 'Course', 'Section', 'Activity Type', 'Periods', 'Faculty', 'Room', 'Action'];
+
   const close = () => { setOpen(false); setFile(null); setPreview(null); setError(''); };
   const run = async (action: 'preview' | 'commit') => {
     if (!file) return;
-    setBusy(true); setError(''); const form = new FormData(); form.append('file', file);
-    try { const { data } = await apiClient.post<Result>(`/imports/course-offerings/${action}/`, form, { headers: { 'Content-Type': 'multipart/form-data' } }); if (action === 'preview') setPreview(data); else { close(); onComplete(); } }
-    catch (caught: unknown) { const data = (caught as { response?: { data?: Result } }).response?.data; if (data?.detail) setError(data.detail); else setPreview(data ?? { invalid: 1, errors: [{ row: 0, message: 'Unable to process the upload.' }] }); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError('');
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const { data } = await apiClient.post<Result>(`/imports/course-offerings/${action}/`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      if (action === 'preview') setPreview(data);
+      else { close(); onComplete(); }
+    } catch (caught: unknown) {
+      const data = (caught as { response?: { data?: Result } }).response?.data;
+      if (data?.detail) setError(data.detail);
+      else setPreview(data ?? { invalid: 1, errors: [{ row: 0, message: 'Unable to process the upload.' }] });
+    } finally { setBusy(false); }
   };
-  const download = async () => { const { data } = await apiClient.get('/imports/course-offerings/template/', { responseType: 'blob' }); const url = URL.createObjectURL(data); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'course-offerings-import-template.xlsx'; anchor.click(); URL.revokeObjectURL(url); };
-  return <><Button variant="outline" onClick={() => setOpen(true)}>Import Offerings</Button>{open && <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4"><div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-xl bg-white p-6"><h2 className="text-lg font-semibold">Import Course Offerings</h2><p className="mt-1 text-sm text-slate-500">Upload an Excel or CSV file to create Course Offerings, assign Faculty, and configure preferred Rooms.</p><Button variant="outline" className="mt-4" onClick={download}>Download Template</Button><input className="my-4 block w-full" type="file" accept=".xlsx,.csv" onChange={event => { setFile(event.target.files?.[0] ?? null); setPreview(null); setError(''); }} /><p className="mb-3 text-sm text-slate-500">{file?.name ?? 'No file selected'} · Accepted: .xlsx, .csv</p>{error && <p className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}<div className="flex gap-2"><Button disabled={!file || busy} onClick={() => run('preview')}>Preview</Button><Button disabled={!preview || !!preview.invalid || !preview.valid || busy} onClick={() => run('commit')}>Import</Button><Button variant="outline" onClick={close}>Cancel</Button></div>{preview && <><p className="mt-4 text-sm">Total: {preview.total ?? 0} · Valid: {preview.valid ?? 0} · Invalid: {preview.invalid ?? 0} · Warnings: {preview.warnings ?? 0}</p><div className="mt-3 max-h-64 overflow-auto"><table className="w-full text-left text-xs"><thead className="border-b bg-slate-50"><tr>{['Status', 'Session', 'Semester', 'Course', 'Section', 'Periods', 'Faculty', 'Room', 'Action'].map(label => <th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{(preview.rows ?? []).map(item => <tr className="border-b" key={item.row}><td className="p-2">{item.status}</td><td className="p-2">{item.session}</td><td className="p-2">{item.semester}</td><td className="p-2">{item.course}</td><td className="p-2">{item.section}</td><td className="p-2">{item.weekly_periods}</td><td className="p-2">{item.employee_code || item.faculty_name || 'Not assigned'}</td><td className="p-2">{item.room}</td><td className="p-2">{item.action}</td></tr>)}</tbody></table>{(preview.errors ?? []).map(item => <p className="mt-1 text-xs text-red-600" key={`${item.row}-${item.message}`}>Row {item.row} — {item.message}</p>)}{(preview.warning_details ?? []).map(item => <p className="mt-1 text-xs text-amber-700" key={`${item.row}-${item.message}`}>Row {item.row} — {item.message}</p>)}</div>{preview.offerings_created !== undefined && <p className="mt-3 text-sm text-green-700">Created {preview.offerings_created} offerings and {preview.faculty_assignments_created ?? 0} faculty assignments.</p>}</>}</div></div>}</>;
+  const download = async () => {
+    const { data } = await apiClient.get('/imports/course-offerings/template/', { responseType: 'blob' });
+    const url = URL.createObjectURL(data);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'course-offerings-import-template.xlsx';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return <>
+    <Button variant="outline" onClick={() => setOpen(true)}>Import Offerings</Button>
+    {open && <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-xl bg-white p-6">
+        <h2 className="text-lg font-semibold">Import Course Offerings</h2>
+        <p className="mt-1 text-sm text-slate-500">Upload an Excel or CSV file to create Course Offerings, assign Faculty, and configure preferred Rooms.</p>
+        <Button variant="outline" className="mt-4" onClick={download}>Download Template</Button>
+        <input className="my-4 block w-full" type="file" accept=".xlsx,.csv" onChange={event => { setFile(event.target.files?.[0] ?? null); setPreview(null); setError(''); }} />
+        <p className="mb-3 text-sm text-slate-500">{file?.name ?? 'No file selected'} | Accepted: .xlsx, .csv</p>
+        {error && <p className="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        <div className="flex gap-2">
+          <Button disabled={!file || busy} onClick={() => run('preview')}>Preview</Button>
+          <Button disabled={!preview || !!preview.invalid || !preview.valid || busy} onClick={() => run('commit')}>Import</Button>
+          <Button variant="outline" onClick={close}>Cancel</Button>
+        </div>
+        {preview && <>
+          <p className="mt-4 text-sm">Total: {preview.total ?? 0} | Valid: {preview.valid ?? 0} | Invalid: {preview.invalid ?? 0} | Warnings: {preview.warnings ?? 0}</p>
+          <div className="mt-3 max-h-64 overflow-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b bg-slate-50"><tr>{tableLabels.map(label => <th className="p-2" key={label}>{label}</th>)}</tr></thead>
+              <tbody>{(preview.rows ?? []).map(item => <tr className="border-b" key={item.row}>
+                <td className="p-2">{item.status}</td><td className="p-2">{item.session}</td><td className="p-2">{item.semester}</td>
+                <td className="p-2">{item.course}</td><td className="p-2">{item.section}</td><td className="p-2">{item.activity_type || '-'}</td>
+                <td className="p-2">{item.weekly_periods}</td><td className="p-2">{item.faculty || item.employee_code || item.faculty_name || 'Not assigned'}</td>
+                <td className="p-2">{item.room}</td><td className="p-2">{item.action}</td>
+              </tr>)}</tbody>
+            </table>
+            {(preview.errors ?? []).map(item => <p className="mt-1 text-xs text-red-600" key={`${item.row}-${item.message}`}>Row {item.row} - {item.message}</p>)}
+            {(preview.warning_details ?? []).map(item => <p className="mt-1 text-xs text-amber-700" key={`${item.row}-${item.message}`}>Row {item.row} - {item.message}</p>)}
+          </div>
+          {preview.offerings_created !== undefined && <p className="mt-3 text-sm text-green-700">Created {preview.offerings_created} offerings and {preview.faculty_assignments_created ?? 0} faculty assignments.</p>}
+        </>}
+      </div>
+    </div>}
+  </>;
 }

@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.core.exceptions import ValidationError
 from accounts.models import User
 from institutions.models import Institution, Department
 from academics.models import AcademicSession, Semester, Section, CourseOffering
@@ -18,6 +19,12 @@ class ScheduleEntry(models.Model):
     class DeliveryMode(models.TextChoices): ONLINE='ONLINE'; OFFLINE='OFFLINE'
     class Weekday(models.IntegerChoices): MONDAY=0; TUESDAY=1; WEDNESDAY=2; THURSDAY=3; FRIDAY=4; SATURDAY=5
     id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False); version=models.ForeignKey(TimetableVersion,on_delete=models.CASCADE,related_name='entries'); section=models.ForeignKey(Section,on_delete=models.PROTECT,related_name='schedule_entries'); course_offering=models.ForeignKey(CourseOffering,on_delete=models.PROTECT,related_name='schedule_entries'); weekday=models.PositiveSmallIntegerField(choices=Weekday.choices); start_slot=models.ForeignKey(TimeSlot,on_delete=models.PROTECT,related_name='schedule_entries'); block_length=models.PositiveIntegerField(default=1); room=models.ForeignKey(Room,null=True,blank=True,on_delete=models.PROTECT,related_name='schedule_entries'); entry_type=models.CharField(max_length=20,choices=EntryType.choices,default=EntryType.LECTURE); delivery_mode=models.CharField(max_length=10,choices=DeliveryMode.choices,default=DeliveryMode.OFFLINE); locked=models.BooleanField(default=False); note=models.TextField(blank=True); created_at=models.DateTimeField(auto_now_add=True); updated_at=models.DateTimeField(auto_now=True)
+    def save(self, *args, **kwargs):
+        from scheduling.weekdays import WORKING_DAYS, WEEKEND_ERROR_CODE, WEEKEND_ERROR_MESSAGE
+        existing_weekday = type(self).objects.filter(pk=self.pk).values_list('weekday', flat=True).first() if self.pk else None
+        if self.weekday not in WORKING_DAYS and existing_weekday != self.weekday:
+            raise ValidationError({'weekday': ValidationError(WEEKEND_ERROR_MESSAGE, code=WEEKEND_ERROR_CODE)})
+        return super().save(*args, **kwargs)
 class ScheduleEntryFaculty(models.Model):
     class Role(models.TextChoices): PRIMARY='PRIMARY'; CO_FACULTY='CO_FACULTY'; ASSISTANT='ASSISTANT'
     id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False); schedule_entry=models.ForeignKey(ScheduleEntry,on_delete=models.CASCADE,related_name='faculty_assignments'); faculty=models.ForeignKey(Faculty,on_delete=models.PROTECT,related_name='schedule_assignments'); role=models.CharField(max_length=20,choices=Role.choices,default=Role.PRIMARY)
@@ -25,15 +32,21 @@ class ScheduleEntryFaculty(models.Model):
 
 class GenerationRun(models.Model):
     class Status(models.TextChoices): PENDING='PENDING'; RUNNING='RUNNING'; SUCCEEDED='SUCCEEDED'; INFEASIBLE='INFEASIBLE'; FAILED='FAILED'; APPLIED='APPLIED'
-    class SolverStatus(models.TextChoices): OPTIMAL='OPTIMAL'; FEASIBLE='FEASIBLE'; INFEASIBLE='INFEASIBLE'; MODEL_INVALID='MODEL_INVALID'; UNKNOWN='UNKNOWN'
+    class SolverStatus(models.TextChoices): OPTIMAL='OPTIMAL'; FEASIBLE='FEASIBLE'; INFEASIBLE='INFEASIBLE'; MODEL_INVALID='MODEL_INVALID'; UNKNOWN='UNKNOWN'; PRECHECK_FAILED='PRECHECK_FAILED'; POST_VALIDATION_FAILED='POST_VALIDATION_FAILED'
     id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
     timetable=models.ForeignKey(Timetable,on_delete=models.CASCADE,related_name='generation_runs')
     source_version=models.ForeignKey(TimetableVersion,on_delete=models.PROTECT,related_name='generation_runs')
     created_by=models.ForeignKey(User,on_delete=models.PROTECT,related_name='generation_runs')
     mode=models.CharField(max_length=40,default='FILL_GAPS')
     status=models.CharField(max_length=20,choices=Status.choices,default=Status.PENDING)
-    solver_status=models.CharField(max_length=20,choices=SolverStatus.choices,blank=True)
-    input_config=models.JSONField(default=dict); input_snapshot=models.JSONField(default=dict); result=models.JSONField(default=dict); diagnostics=models.JSONField(default=dict); statistics=models.JSONField(default=dict)
+    solver_status=models.CharField(max_length=32,choices=SolverStatus.choices,blank=True)
+    input_config=models.JSONField(default=dict); input_snapshot=models.JSONField(default=dict); input_snapshot_version=models.PositiveSmallIntegerField(null=True,blank=True); input_fingerprint=models.CharField(max_length=64,blank=True); generation_validation=models.JSONField(default=dict,blank=True); current_validation=models.JSONField(default=dict,blank=True); apply_validation=models.JSONField(default=dict,blank=True); result=models.JSONField(default=dict); diagnostics=models.JSONField(default=dict); statistics=models.JSONField(default=dict)
     objective_score=models.FloatField(null=True,blank=True); source_fingerprint=models.CharField(max_length=64,blank=True)
     created_at=models.DateTimeField(auto_now_add=True); started_at=models.DateTimeField(null=True,blank=True); completed_at=models.DateTimeField(null=True,blank=True); applied_at=models.DateTimeField(null=True,blank=True)
     applied_version=models.ForeignKey(TimetableVersion,null=True,blank=True,on_delete=models.PROTECT,related_name='applied_generation_runs'); error_message=models.TextField(blank=True)
+    def save(self,*args,**kwargs):
+        if self.pk:
+            stored=type(self).objects.filter(pk=self.pk).values('input_snapshot','input_snapshot_version','input_fingerprint').first()
+            if stored and stored['input_snapshot'] and any(stored[key]!=getattr(self,key) for key in ('input_snapshot','input_snapshot_version','input_fingerprint')):
+                raise ValidationError('A generation run input snapshot is immutable once recorded.')
+        return super().save(*args,**kwargs)

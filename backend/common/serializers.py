@@ -7,6 +7,7 @@ from faculty.models import Faculty, FacultyAvailability, CourseOfferingFaculty
 from rooms.models import Room, RoomAvailability
 from common.models import TimeSlotTemplate, TimeSlot
 from faculty.email_service import sync_faculty_email
+from scheduling.weekdays import WORKING_DAYS
 
 class FriendlyModelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -44,12 +45,25 @@ class SemesterSerializer(FriendlyModelSerializer):
 class SectionSerializer(FriendlyModelSerializer):
     program_name = serializers.CharField(source='program.name', read_only=True)
     semester_name = serializers.CharField(source='semester.name', read_only=True)
-    class Meta: model = Section; fields = '__all__'
+    effective_delivery_policy = serializers.SerializerMethodField()
+    effective_offline_weekday = serializers.SerializerMethodField()
+    class Meta:
+        model = Section
+        fields = ('id','program','semester','year','name','student_strength','delivery_policy','offline_weekday','effective_delivery_policy','effective_offline_weekday','coordinator','created_at','updated_at','program_name','semester_name')
+    def _effective_policy(self, obj):
+        from academics.delivery import get_section_delivery_policy
+        return get_section_delivery_policy(obj, obj.semester)
+    def get_effective_delivery_policy(self, obj):
+        return self._effective_policy(obj)[0]
+    def get_effective_offline_weekday(self, obj):
+        return self._effective_policy(obj)[1]
     def validate(self, attrs):
         policy = attrs.get('delivery_policy', self.instance.delivery_policy if self.instance else Section.DeliveryPolicy.STANDARD)
         offline_day = attrs.get('offline_weekday', self.instance.offline_weekday if self.instance else None)
         if policy == Section.DeliveryPolicy.HYBRID and offline_day is None:
             raise serializers.ValidationError({'offline_weekday': 'A hybrid section must have an offline weekday configured.'})
+        if policy == Section.DeliveryPolicy.HYBRID and offline_day not in WORKING_DAYS:
+            raise serializers.ValidationError({'offline_weekday': 'Hybrid offline day must be a working day (Monday-Friday).'})
         if policy != Section.DeliveryPolicy.HYBRID and offline_day is not None:
             raise serializers.ValidationError({'offline_weekday': 'Offline weekday is only valid for hybrid sections.'})
         return attrs
@@ -114,10 +128,31 @@ class FacultyAvailabilitySerializer(FriendlyModelSerializer):
     class Meta: model = FacultyAvailability; fields = '__all__'
 class CourseOfferingFacultySerializer(FriendlyModelSerializer):
     class Meta: model = CourseOfferingFaculty; fields = '__all__'
+class RoomAllowedYearField(serializers.IntegerField):
+    def to_internal_value(self, data):
+        if data is None or data == '' or (isinstance(data, str) and data.strip().upper() == 'ALL'):
+            return None
+        value = super().to_internal_value(data)
+        if value not in (1, 2, 3, 4):
+            self.fail('invalid')
+        return value
+    default_error_messages = {'invalid': 'Allowed year must be ALL or a year from 1 to 4.'}
+class RoomReservedYearField(serializers.IntegerField):
+    default_error_messages = {'invalid': 'Reserved year must be a year from 1 to 4.'}
+    def to_internal_value(self, data):
+        if data is None or data == '': return None
+        value=super().to_internal_value(data)
+        if value not in (1,2,3,4): self.fail('invalid')
+        return value
 class RoomSerializer(FriendlyModelSerializer):
     projector = serializers.SerializerMethodField()
+    room_type_display = serializers.SerializerMethodField()
+    allowed_year = RoomAllowedYearField(required=False, allow_null=True)
+    reserved_year = RoomReservedYearField(required=False, allow_null=True)
+    reserved_program_name = serializers.CharField(source='reserved_program.name',read_only=True,allow_null=True)
     class Meta: model = Room; fields = '__all__'
     def get_projector(self,obj): return 'Yes' if obj.has_projector else 'No'
+    def get_room_type_display(self,obj): return obj.get_room_type_display()
 class RoomAvailabilitySerializer(FriendlyModelSerializer):
     class Meta: model = RoomAvailability; fields = '__all__'
 class TimeSlotTemplateSerializer(FriendlyModelSerializer):

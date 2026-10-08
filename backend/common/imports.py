@@ -7,6 +7,21 @@ from rooms.models import Room
 from django.core.exceptions import ValidationError
 
 SPECS={'rooms':['code','building','floor','capacity','room_type','active'],'courses':['code','name','short_code','credit','active'],'faculty':['email','first_name','last_name','employee_code','initials','department_code','max_daily_periods','max_weekly_periods','active'],'sections':['program_code','semester','year','name','student_strength','coordinator_email','active'],'course-offerings':['semester','section','course_code','weekly_periods','default_class_type','required_block_size','room_type_requirement','preferred_room_code','active']}
+
+class InvalidRoomType(ValueError):
+    pass
+
+def _room_type_key(value):
+    return ''.join(character for character in str(value).casefold() if character.isalnum())
+
+def _normalize_room_type(value):
+    supported={_room_type_key(choice): choice for choice, _label in Room.RoomType.choices}
+    supported.update({_room_type_key(label): choice for choice, label in Room.RoomType.choices})
+    normalized=supported.get(_room_type_key(value))
+    if not normalized:
+        raise InvalidRoomType(f'Unsupported room type: {value}')
+    return normalized
+
 def rows_from_upload(upload):
     raw=upload.read()
     if upload.name.lower().endswith('.xlsx'):
@@ -27,7 +42,7 @@ def validate(kind, rows, mode='CREATE_ONLY'):
     errors=[]; valid=[]; seen=set()
     for n, source in enumerate(rows,2):
         if kind=='rooms':
-            headers={'room no.':'code','room no':'code','code':'code','building':'building','floor':'floor','capacity':'capacity','room type':'room_type','room_type':'room_type','projector':'has_projector','projector available':'has_projector','active':'active'}
+            headers={'room no.':'code','room no':'code','code':'code','building':'building','floor':'floor','capacity':'capacity','room type':'room_type','room_type':'room_type','projector':'has_projector','projector available':'has_projector','active':'active','allowed year':'allowed_year','allowed_year':'allowed_year'}
             source={headers.get(str(key).strip().lower(),str(key).strip()): value for key,value in source.items()}
         row={str(k).strip():('' if v is None else str(v).strip()) for k,v in source.items()}
         missing=[f for f in SPECS[kind] if f not in row]
@@ -36,9 +51,14 @@ def validate(kind, rows, mode='CREATE_ONLY'):
         try:
             if kind=='rooms':
                 if not row['code']: raise ValueError('Room No. is required')
-                room_types={label.lower():value for value,label in Room.RoomType.choices}; normalized=room_types.get(row['room_type'].lower()) or (row['room_type'].upper() if row['room_type'].upper() in dict(Room.RoomType.choices) else None)
-                if not normalized: raise ValueError('Invalid room type')
-                row['room_type']=normalized
+                row['room_type']=_normalize_room_type(row['room_type'])
+                allowed_year=row.get('allowed_year','').strip().upper()
+                if allowed_year in ('','ALL'):
+                    row['allowed_year']=None
+                elif allowed_year not in ('1','2','3','4'):
+                    raise ValueError('Allowed Year must be ALL or 1, 2, 3, or 4.')
+                else:
+                    row['allowed_year']=int(allowed_year)
                 if row['code'] in seen or Room.objects.filter(code=row['code']).exists(): row['_skip']='Room No. already exists'
                 seen.add(row['code'])
                 if int(row['capacity'])<=0: raise ValueError('Capacity must be positive')
@@ -59,7 +79,10 @@ def validate(kind, rows, mode='CREATE_ONLY'):
             elif kind=='sections': row['_program_id']=str(Program.objects.get(code=row['program_code']).pk); row['_semester_id']=str(Semester.objects.get(name=row['semester']).pk); int(row['student_strength'])
             elif kind=='course-offerings':
                 row['_course_id']=str(Course.objects.get(code=row['course_code']).pk); row['_semester_id']=str(Semester.objects.get(name=row['semester']).pk); row['_section_id']=str(Section.objects.get(name=row['section'],semester_id=row['_semester_id']).pk)
-        except Exception as exc: errors.append({'row':n,'field':'data','message':str(exc)})
+        except Exception as exc:
+            error={'row':n,'field':'room_type' if isinstance(exc,InvalidRoomType) else 'data','message':str(exc)}
+            if isinstance(exc,InvalidRoomType):error['code']='INVALID_ROOM_TYPE'
+            errors.append(error)
         else: valid.append(row)
     return valid,errors
 @transaction.atomic
@@ -69,7 +92,7 @@ def commit(kind, rows, mode='CREATE_ONLY'):
     for row in valid:
         if kind=='rooms':
             if row.get('_skip'): continue
-            Room.objects.create(code=row['code'],building=row['building'],floor=row['floor'],capacity=int(row['capacity']),room_type=row['room_type'],active=row['active'].lower()!='false',**({'has_projector':row['has_projector']} if 'has_projector' in row else {}))
+            Room.objects.create(code=row['code'],building=row['building'],floor=row['floor'],capacity=int(row['capacity']),room_type=row['room_type'],active=row['active'].lower()!='false',allowed_year=row.get('allowed_year'),**({'has_projector':row['has_projector']} if 'has_projector' in row else {}))
         elif kind=='courses':
             values={'name':row['name'],'short_code':row.get('short_code','')[:20],'credit':row['credit'],'active':True if mode=='REPLACE' else row['active']}
             if row.get('_update_id'): Course.objects.filter(pk=row['_update_id']).update(**values)

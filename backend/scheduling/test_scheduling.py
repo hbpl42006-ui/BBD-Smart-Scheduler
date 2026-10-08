@@ -1,10 +1,11 @@
 import pytest
 from io import BytesIO
-from datetime import date,time
+from datetime import date,datetime,time
 from unittest.mock import patch
 from openpyxl import Workbook
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from accounts.models import User,Role
 from institutions.models import Institution,Department,Program
 from academics.models import AcademicSession,Semester,Section,Course,CourseOffering
@@ -99,6 +100,74 @@ def test_bulk_arrangement_endpoint_notifies_substitute(data, client, django_capt
     assert notifications.count()==1 and notifications.first().action_url=='/faculty-arrangements'
     assert NotificationDelivery.objects.filter(notification=notifications.first(),channel='EMAIL').exists()
 
+def test_faculty_self_service_arranges_only_own_published_class(data):
+    from accounts.models import User
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    replacement_user=User.objects.create_user('replace@test.local','Pass12345!',role=Role.FACULTY,first_name='Replacement')
+    replacement=Faculty.objects.create(user=replacement_user,employee_code='F002',department=data['department'])
+    c=APIClient();c.force_authenticate(data['user'])
+    response=c.post('/api/faculty-arrangements/',{'schedule_entry':str(entry.pk),'arrangement_date':'2027-07-05','substitute_faculty':str(replacement.pk),'absent_faculty':str(replacement.pk)},format='json')
+    assert response.status_code==201
+    assert FacultyArrangement.objects.get(pk=response.data['id']).absent_faculty==data['faculty']
+    assert c.get('/api/faculty-arrangements/').data[0]['id']==response.data['id']
+    assert c.get('/api/faculty-arrangements/my-classes/').data[0]['schedule_entry']==str(entry.pk)
+
+def test_faculty_self_service_rejects_another_facultys_entry(data):
+    from accounts.models import User
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    other_user=User.objects.create_user('other@test.local','Pass12345!',role=Role.FACULTY)
+    other=Faculty.objects.create(user=other_user,employee_code='F004',department=data['department'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=other)
+    c=APIClient();c.force_authenticate(data['user'])
+    response=c.post('/api/faculty-arrangements/',{'schedule_entry':str(entry.pk),'arrangement_date':'2027-07-05','substitute_faculty':str(data['faculty'].pk),'absent_faculty':str(data['faculty'].pk)},format='json')
+    assert response.status_code==403 and response.data['code']=='NOT_YOUR_CLASS'
+    assert not FacultyArrangement.objects.exists()
+
+def test_faculty_self_service_rejects_weekend_and_duplicate(data):
+    from accounts.models import User
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    replacement_user=User.objects.create_user('replace2@test.local','Pass12345!',role=Role.FACULTY)
+    replacement=Faculty.objects.create(user=replacement_user,employee_code='F005',department=data['department'])
+    c=APIClient();c.force_authenticate(data['user'])
+    weekend=c.post('/api/faculty-arrangements/',{'schedule_entry':str(entry.pk),'arrangement_date':'2027-07-04','substitute_faculty':str(replacement.pk)},format='json')
+    assert weekend.status_code==400 and weekend.data['code']=='INVALID_CLASS_DATE'
+    good={'schedule_entry':str(entry.pk),'arrangement_date':'2027-07-05','substitute_faculty':str(replacement.pk)}
+    assert c.post('/api/faculty-arrangements/',good,format='json').status_code==201
+    duplicate=c.post('/api/faculty-arrangements/',good,format='json')
+    assert duplicate.status_code==400 and duplicate.data['code']=='ARRANGEMENT_ALREADY_EXISTS'
+
+def test_arrangement_availability_checks_entire_block(data):
+    from accounts.models import User
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],block_length=2,room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    busy_user=User.objects.create_user('blockbusy@test.local','Pass12345!',role=Role.FACULTY)
+    busy=Faculty.objects.create(user=busy_user,employee_code='F006',department=data['department'])
+    other_section=Section.objects.create(program=data['program'],semester=data['semester'],year=1,name='B',student_strength=20)
+    other_entry=ScheduleEntry.objects.create(version=data['version'],section=other_section,course_offering=data['offering'],weekday=0,start_slot=data['slots'][1],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=other_entry,faculty=busy)
+    c=APIClient();c.force_authenticate(data['user'])
+    response=c.get('/api/faculty-arrangements/available-faculty/',{'schedule_entry':str(entry.pk),'date':'2027-07-05'})
+    assert response.status_code==200 and str(busy.pk) not in {row['id'] for row in response.data}
+
+def test_arrangement_availability_excludes_unavailable_and_self(data):
+    from accounts.models import User
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    unavailable_user=User.objects.create_user('unavailable@test.local','Pass12345!',role=Role.FACULTY)
+    unavailable=Faculty.objects.create(user=unavailable_user,employee_code='F007',department=data['department'])
+    FacultyAvailability.objects.create(faculty=unavailable,weekday=0,time_slot=data['slots'][0],is_available=False)
+    c=APIClient();c.force_authenticate(data['user'])
+    response=c.get('/api/faculty-arrangements/available-faculty/',{'schedule_entry':str(entry.pk),'date':'2027-07-05'})
+    available={row['id'] for row in response.data}
+    assert response.status_code==200 and str(data['faculty'].pk) not in available and str(unavailable.pk) not in available
+
 def test_arrangement_notification_does_not_duplicate(data, django_capture_on_commit_callbacks):
     from notifications.models import Notification
     from notifications.services import notify_arrangement_after_commit
@@ -117,6 +186,149 @@ def test_arrangement_notification_without_linked_user_is_safe(data, django_captu
     arrangement=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=unlinked,created_by=data['admin'])
     with django_capture_on_commit_callbacks(execute=True): notify_arrangement_after_commit(arrangement,'ASSIGNED',data['admin'])
     assert not Notification.objects.exists()
+
+def test_arrangement_attendance_upload_is_visible_only_to_original_faculty(data, django_capture_on_commit_callbacks, settings, tmp_path):
+    from faculty.models import ArrangementAttendanceEvidence
+    settings.EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'
+    settings.MEDIA_ROOT=str(tmp_path)
+    data['version'].status='PUBLISHED'; data['version'].save(update_fields=['status'])
+    substitute_user=User.objects.create_user('substitute@test.local','Pass12345!',role=Role.FACULTY,first_name='Amit',last_name='Singh')
+    substitute=Faculty.objects.create(user=substitute_user,employee_code='F003',initials='AS',department=data['department'])
+    unrelated_user=User.objects.create_user('unrelated@test.local','Pass12345!',role=Role.FACULTY)
+    Faculty.objects.create(user=unrelated_user,employee_code='F004',initials='UF',department=data['department'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][3],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    arrangement=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=substitute,created_by=data['admin'])
+    substitute_client=APIClient(); substitute_client.force_authenticate(substitute_user)
+    original_client=APIClient(); original_client.force_authenticate(data['faculty'].user)
+    unrelated_client=APIClient(); unrelated_client.force_authenticate(unrelated_user)
+    received_url='/api/faculty-arrangements/received-attendance/'
+    assert original_client.get(received_url).data=={'count':0,'results':[]}
+    upload=SimpleUploadedFile('attendance-CSAI-2G.pdf',b'%PDF-evidence',content_type='application/pdf')
+    upload_time=timezone.make_aware(datetime(2027,7,5,13),timezone.get_current_timezone())
+    with django_capture_on_commit_callbacks(execute=True):
+        with patch('faculty.arrangement_views.timezone.now',return_value=upload_time):
+            uploaded=substitute_client.post(f'/api/faculty-arrangements/{arrangement.pk}/attendance/',{'file':upload},format='multipart')
+    assert uploaded.status_code==201
+    evidence=ArrangementAttendanceEvidence.objects.get(pk=uploaded.data['id'])
+    result=original_client.get(received_url)
+    assert result.status_code==200 and result.data['count']==1
+    row=result.data['results'][0]
+    assert row['id']==str(evidence.pk) and row['arrangement_id']==str(arrangement.pk)
+    assert row['course']=={'code':'CS101','name':'Operating Systems'}
+    assert row['section']['name']=='A' and row['time_slot']['label']==data['slots'][3].label
+    assert row['original_faculty']['id']==str(data['faculty'].pk)
+    assert row['arrangement_faculty']['name']=='Amit Singh' and row['attendance_status']=='UPLOADED'
+    assert row['evidence']['original_filename']=='attendance-CSAI-2G.pdf'
+    assert ScheduleEntry.objects.filter(pk=entry.pk).count()==1
+    assert ArrangementAttendanceEvidence.objects.filter(arrangement=arrangement).count()==1
+    history=substitute_client.get('/api/faculty-arrangements/')
+    assert history.status_code==200 and history.data[0]['attendance']=='Uploaded'
+    view_url=f'/api/faculty-arrangements/{arrangement.pk}/attendance/{evidence.pk}/view/'
+    assert original_client.get(view_url).status_code==200
+    assert substitute_client.get(view_url).status_code==200
+    assert original_client.get(view_url+'?download=1').status_code==200
+    assert unrelated_client.get(received_url).data=={'count':0,'results':[]}
+    assert unrelated_client.get(view_url).status_code==403
+    denied_upload=SimpleUploadedFile('forbidden.pdf',b'%PDF',content_type='application/pdf')
+    assert unrelated_client.post(f'/api/faculty-arrangements/{arrangement.pk}/attendance/',{'file':denied_upload},format='multipart').status_code==403
+    assert Notification.objects.filter(recipient=data['faculty'].user,event_type='ARRANGEMENT_ATTENDANCE_UPLOADED').count()==1
+    assert not Notification.objects.filter(recipient=substitute_user,event_type='ARRANGEMENT_ATTENDANCE_UPLOADED').exists()
+    assert not Notification.objects.filter(recipient=unrelated_user,event_type='ARRANGEMENT_ATTENDANCE_UPLOADED').exists()
+    notice=Notification.objects.get(recipient=data['faculty'].user,event_type='ARRANGEMENT_ATTENDANCE_UPLOADED')
+    assert notice.metadata=={'arrangement_id':str(arrangement.pk),'evidence_id':str(evidence.pk)}
+    assert notice.action_url==f'/faculty-arrangements/attendance/{arrangement.pk}/{evidence.pk}'
+    assert original_client.get(received_url).data['count']==1
+    assert Notification.objects.filter(recipient=data['faculty'].user,event_type='ARRANGEMENT_ATTENDANCE_UPLOADED').count()==1
+    superuser=User.objects.create_superuser('super@test.local','Pass12345!')
+    super_client=APIClient(); super_client.force_authenticate(superuser)
+    assert super_client.get(view_url).status_code==200
+    hod=User.objects.create_user('hod@test.local','Pass12345!',role=Role.HOD_OR_DEAN_APPROVER)
+    hod_client=APIClient(); hod_client.force_authenticate(hod)
+    assert hod_client.get(view_url).status_code==200
+
+def _arrangement_upload_case(data, *, status='ASSIGNED', block_length=1, start_index=0, end_time=time(16), tmp_path=None):
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    start=data['slots'][start_index]
+    start.start_time=time(15);start.end_time=end_time;start.save(update_fields=['start_time','end_time'])
+    if block_length==2:
+        second=data['slots'][start_index+1];second.start_time=end_time;second.end_time=time(17);second.save(update_fields=['start_time','end_time'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=start,block_length=block_length,room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    substitute_user=User.objects.create_user(f'substitute-{status}-{block_length}@test.local','Pass12345!',role=Role.FACULTY)
+    substitute=Faculty.objects.create(user=substitute_user,employee_code=f'F-{status}-{block_length}',department=data['department'])
+    arrangement=FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=substitute,created_by=data['admin'],status=status)
+    client=APIClient();client.force_authenticate(substitute_user)
+    if tmp_path:
+        from django.conf import settings
+        settings.MEDIA_ROOT=str(tmp_path)
+    return arrangement,client
+
+def _upload_at(client,arrangement,instant):
+    upload=SimpleUploadedFile('attendance.pdf',b'%PDF-evidence',content_type='application/pdf')
+    with patch('faculty.arrangement_views.timezone.now',return_value=instant):
+        return client.post(f'/api/faculty-arrangements/{arrangement.pk}/attendance/',{'file':upload},format='multipart')
+
+def test_attendance_upload_rejected_before_class_start_and_during_class(data,tmp_path):
+    arrangement,client=_arrangement_upload_case(data,tmp_path=tmp_path)
+    for at in (time(14,59),time(15,30)):
+        current=timezone.make_aware(datetime.combine(date(2027,7,5),at),timezone.get_current_timezone())
+        response=_upload_at(client,arrangement,current)
+        assert response.status_code==400 and response.data['code']=='ATTENDANCE_UPLOAD_TOO_EARLY'
+        assert response.data['available_after']==timezone.make_aware(datetime(2027,7,5,16),timezone.get_current_timezone()).isoformat()
+
+def test_attendance_upload_allowed_exactly_at_class_end_and_rejects_duplicate(data,tmp_path):
+    arrangement,client=_arrangement_upload_case(data,tmp_path=tmp_path)
+    after=timezone.make_aware(datetime(2027,7,5,16),timezone.get_current_timezone())
+    assert _upload_at(client,arrangement,after).status_code==201
+    duplicate=_upload_at(client,arrangement,after)
+    assert duplicate.status_code==409 and duplicate.data['code']=='ATTENDANCE_ALREADY_UPLOADED'
+
+def test_attendance_upload_allowed_for_past_class(data,tmp_path):
+    arrangement,client=_arrangement_upload_case(data,tmp_path=tmp_path)
+    past=timezone.make_aware(datetime(2027,7,6,12),timezone.get_current_timezone())
+    assert _upload_at(client,arrangement,past).status_code==201
+
+def test_two_period_arrangement_uses_final_period_end(data,tmp_path):
+    arrangement,client=_arrangement_upload_case(data,block_length=2,start_index=0,end_time=time(16),tmp_path=tmp_path)
+    before_final_end=timezone.make_aware(datetime(2027,7,5,16,30),timezone.get_current_timezone())
+    early=_upload_at(client,arrangement,before_final_end)
+    assert early.status_code==400 and early.data['code']=='ATTENDANCE_UPLOAD_TOO_EARLY'
+    assert early.data['available_after']==timezone.make_aware(datetime(2027,7,5,17),timezone.get_current_timezone()).isoformat()
+    at_end=timezone.make_aware(datetime(2027,7,5,17),timezone.get_current_timezone())
+    assert _upload_at(client,arrangement,at_end).status_code==201
+
+def test_attendance_upload_rejects_unrelated_and_cancelled_arrangements(data,tmp_path):
+    arrangement,client=_arrangement_upload_case(data,tmp_path=tmp_path)
+    after=timezone.make_aware(datetime(2027,7,5,17),timezone.get_current_timezone())
+    unrelated_user=User.objects.create_user('not-substitute@test.local','Pass12345!',role=Role.FACULTY)
+    unrelated=APIClient();unrelated.force_authenticate(unrelated_user)
+    assert _upload_at(unrelated,arrangement,after).status_code==403
+    arrangement.status='CANCELLED';arrangement.save(update_fields=['status'])
+    cancelled=_upload_at(client,arrangement,after)
+    assert cancelled.status_code==400 and cancelled.data['code']=='ARRANGEMENT_NOT_ACTIVE'
+
+def test_arrangement_history_marks_only_substitute_as_upload_actor(data):
+    data['version'].status='PUBLISHED';data['version'].save(update_fields=['status'])
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry,faculty=data['faculty'])
+    substitute_user=User.objects.create_user('history-sub@test.local','Pass12345!',role=Role.FACULTY)
+    substitute=Faculty.objects.create(user=substitute_user,employee_code='F-HISTORY',department=data['department'])
+    FacultyArrangement.objects.create(schedule_entry=entry,arrangement_date=date(2027,7,5),absent_faculty=data['faculty'],substitute_faculty=substitute,created_by=data['admin'])
+    original_client=APIClient();original_client.force_authenticate(data['faculty'].user)
+    substitute_client=APIClient();substitute_client.force_authenticate(substitute_user)
+    assert original_client.get('/api/faculty-arrangements/').data[0]['is_arrangement_faculty'] is False
+    assert substitute_client.get('/api/faculty-arrangements/').data[0]['is_arrangement_faculty'] is True
+
+def test_arrangement_attendance_original_faculty_must_be_authenticated_and_linked(data):
+    client=APIClient(); client.force_authenticate(data['faculty'].user)
+    assert client.get('/api/faculty-arrangements/received-attendance/').data['count']==0
+    admin_client=APIClient(); admin_client.force_authenticate(data['admin'])
+    assert admin_client.get('/api/faculty-arrangements/received-attendance/').status_code==403
+    unlinked=User.objects.create_user('unlinked@test.local','Pass12345!',role=Role.FACULTY)
+    unlinked_client=APIClient(); unlinked_client.force_authenticate(unlinked)
+    assert unlinked_client.get('/api/faculty-arrangements/received-attendance/').status_code==404
+
 def test_lock_blocks_update_and_unlock_allows(client,data):
     e=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'],locked=True);r=client.patch(f"/api/versions/{data['version'].pk}/entries/{e.pk}/",{'note':'x'},format='json');assert r.status_code==409;client.post(f"/api/entries/{e.pk}/unlock/");assert client.patch(f"/api/versions/{data['version'].pk}/entries/{e.pk}/",{'note':'x'},format='json').status_code==200
 def test_projection_and_rooms(client,data):
@@ -707,6 +919,111 @@ def test_report_filter_health_and_openapi_contract(client,data):
     schema=client.get('/api/schema/'); assert schema.status_code==200
     paths=schema.data['paths']; assert '/api/reports/section-timetable/' in paths and '/api/reports/analytics/' in paths and '/api/health/' in paths
 
+@pytest.mark.parametrize(('year','expected'),[(1,True),(2,False),(3,False),(4,False)])
+def test_first_year_room_scope_uses_persisted_section_year(data,year,expected):
+    room=Room.objects.create(code='LGF001',building='Engineering',floor='0',capacity=60,room_type='LAB',allowed_year=1)
+    data['section'].year=year;data['section'].save(update_fields=['year'])
+    assert room.is_allowed_for_year(data['section'].year) is expected
+
+def test_unrestricted_room_is_eligible_for_any_year(data):
+    room=Room.objects.create(code='ALL-YEARS',building='Main',floor='1',capacity=60,room_type='LAB')
+    assert all(room.is_allowed_for_year(year) for year in (1,2,3,4))
+
+def test_manual_schedule_entry_rejects_wrong_room_year(client,data):
+    data['room'].allowed_year=1;data['room'].save(update_fields=['allowed_year'])
+    data['section'].year=2;data['section'].save(update_fields=['year'])
+    response=client.post(f"/api/versions/{data['version'].pk}/entries/",payload(data),format='json')
+    assert response.status_code==400
+    assert any(item['code']=='ROOM_YEAR_RESTRICTION' for item in response.data['conflicts'])
+
+def test_manual_schedule_entry_update_rejects_wrong_room_year(client,data):
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    data['room'].allowed_year=1;data['room'].save(update_fields=['allowed_year'])
+    data['section'].year=2;data['section'].save(update_fields=['year'])
+    response=client.patch(f"/api/versions/{data['version'].pk}/entries/{entry.pk}/",{'room':str(data['room'].pk)},format='json')
+    assert response.status_code==400
+    assert any(item['code']=='ROOM_YEAR_RESTRICTION' for item in response.data['conflicts'])
+
+def test_rooms_api_validates_year_scope_and_available_rooms_filter(client,data):
+    reserved=Room.objects.create(code='LGF001',building='Engineering',floor='0',capacity=60,room_type='LAB',allowed_year=1)
+    base={'code':'API-YEAR','building':'Engineering','floor':'0','capacity':60,'room_type':'CLASSROOM','allowed_year':5}
+    invalid=client.post('/api/rooms/',base,format='json')
+    assert invalid.status_code==400
+    year_one=client.get(f'/api/versions/{data["version"].pk}/available-rooms/',{'weekday':0,'start_slot':data['slots'][0].pk,'section':data['section'].pk})
+    assert year_one.status_code==200 and any(room['code']=='LGF001' for room in year_one.data)
+    data['section'].year=2;data['section'].save(update_fields=['year'])
+    year_two=client.get(f'/api/versions/{data["version"].pk}/available-rooms/',{'weekday':0,'start_slot':data['slots'][0].pk,'section':data['section'].pk})
+    assert year_two.status_code==200 and all(room['code']!='LGF001' for room in year_two.data)
+
+def test_timetable_import_enforces_year_room_restriction_and_allows_year_one(client,data):
+    from faculty.models import CourseOfferingFaculty
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    room=Room.objects.create(code='LGF001',building='Engineering',floor='0',capacity=60,room_type='LAB',allowed_year=1)
+    url=f"/api/versions/{data['version'].pk}/imports/timetable/preview/"
+    def preview(section_year):
+        data['section'].year=section_year;data['section'].save(update_fields=['year'])
+        body=b'Section,Course Code,Employee Code,Day,Time Slot,Room No.\nA,CS101,F001,Monday,9:00-10:00,LGF001\n'
+        return client.post(url,{'file':SimpleUploadedFile('room-year.csv',body,content_type='text/csv')},format='multipart')
+    year_two=preview(2)
+    assert year_two.status_code==200 and year_two.data['invalid']==1 and year_two.data['errors'][0]['code']=='ROOM_YEAR_RESTRICTION'
+    year_one=preview(1)
+    assert year_one.status_code==200 and year_one.data['valid']==1
+
+def test_solver_filters_reserved_room_by_section_year(data):
+    from scheduling.solver.engine import Requirement,FacultyAssignment,build_candidates
+    data['room'].active=False;data['room'].save(update_fields=['active'])
+    restricted=Room.objects.create(code='LGF007',building='Engineering',floor='0',capacity=60,room_type='WORKSHOP',allowed_year=1)
+    requirement=Requirement('req',str(data['offering'].pk),str(data['section'].pk),'PRACTICAL',1,(FacultyAssignment(str(data['faculty'].pk),'PRIMARY'),),'WORKSHOP',data['section'].student_strength)
+    data['section'].year=2;data['section'].save(update_fields=['year'])
+    candidates,diagnostics=build_candidates(data['version'],[requirement],{'mode':'REBUILD_UNLOCKED'})
+    assert not candidates['req'] and any(item['code']=='NO_VALID_PLACEMENT' for item in diagnostics)
+    data['section'].year=1;data['section'].save(update_fields=['year'])
+    candidates,_=build_candidates(data['version'],[requirement],{'mode':'REBUILD_UNLOCKED'})
+    assert candidates['req'] and all(item.room_id.startswith('ROOM_GROUP:') for item in candidates['req'])
+
+def test_room_import_allowed_year_is_optional_validated_and_persisted(data):
+    from common.imports import validate,commit
+    base={'code':'IMPORT-ALL','building':'Engineering','floor':'0','capacity':'60','room_type':'LAB','active':'true'}
+    valid,errors=validate('rooms',[base])
+    assert not errors and valid[0].get('allowed_year') is None
+    commit('rooms',[base])
+    scoped={**base,'code':'IMPORT-Y1','allowed_year':'1'}
+    valid,errors=validate('rooms',[scoped])
+    assert not errors and valid[0]['allowed_year']==1
+    commit('rooms',[scoped])
+    assert Room.objects.get(code='IMPORT-Y1').allowed_year==1
+    descriptive={**base,'code':'IMPORT-ELECTRICAL','room_type':'ELECTRICAL LAB','allowed_year':'1'}
+    commit('rooms',[descriptive])
+    assert Room.objects.get(code='IMPORT-ELECTRICAL').room_type=='ELECTRICAL_LAB'
+    invalid={**base,'code':'IMPORT-BAD','allowed_year':'5'}
+    _,errors=validate('rooms',[invalid])
+    assert errors and 'Allowed Year' in errors[0]['message']
+
+@pytest.mark.parametrize(('source','canonical'),[
+    ('ELECTRICAL LAB','ELECTRICAL_LAB'),('Electrical Lab','ELECTRICAL_LAB'),('ELECTRICAL_LAB','ELECTRICAL_LAB'),
+    ('Workshop','WORKSHOP'),('MECHANICS LAB','MECHANICS_LAB'),('Engineering Graphics Lab','ENGINEERING_GRAPHICS_LAB'),
+    ('PHYSICS_LAB','PHYSICS_LAB'),('Sustainable Chemical Sciences Lab','SUSTAINABLE_CHEMICAL_SCIENCES_LAB'),
+])
+def test_room_import_normalizes_descriptive_types(data,source,canonical):
+    from common.imports import validate
+    valid,errors=validate('rooms',[{'code':'NORMALIZE-ROOM','building':'Engineering','floor':'0','capacity':'60','room_type':source,'active':'true'}])
+    assert not errors and valid[0]['room_type']==canonical
+
+def test_room_import_rejects_unknown_type_without_classroom_fallback(data):
+    from common.imports import validate
+    valid,errors=validate('rooms',[{'code':'UNKNOWN-ROOM','building':'Engineering','floor':'0','capacity':'60','room_type':'MYSTERY LAB','active':'true'}])
+    assert not valid
+    assert errors[0]['code']=='INVALID_ROOM_TYPE' and errors[0]['message']=='Unsupported room type: MYSTERY LAB'
+
+def test_room_api_serializes_canonical_and_display_room_type(client,data):
+    room=Room.objects.create(code='API-ELECTRICAL',building='Engineering',floor='0',capacity=60,room_type='ELECTRICAL_LAB',allowed_year=1)
+    response=client.get('/api/rooms/',{'search':'API-ELECTRICAL'})
+    rows=response.data.get('results',response.data) if isinstance(response.data,dict) else response.data
+    serialized=next(row for row in rows if row['id']==str(room.pk))
+    assert serialized['room_type']=='ELECTRICAL_LAB'
+    assert serialized['room_type_display']=='Electrical Lab'
+    assert serialized['allowed_year']==1
+
 def test_timetable_import_preview_is_read_only_and_template_available(client,data):
     client.force_authenticate(data['version'].created_by)
     from faculty.models import CourseOfferingFaculty
@@ -715,6 +1032,19 @@ def test_timetable_import_preview_is_read_only_and_template_available(client,dat
     response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('timetable.csv',body,content_type='text/csv')},format='multipart')
     assert response.status_code==200 and response.data['valid']==1 and data['version'].entries.count()==0
     template=client.get(f'/api/versions/{data["version"].pk}/imports/timetable/template/'); assert template.status_code==200 and template['Content-Type'].startswith('application/vnd.openxmlformats')
+
+@pytest.mark.parametrize('day', ['Saturday', 'Sunday'])
+def test_timetable_import_rejects_weekend_days(client, data, day):
+    from faculty.models import CourseOfferingFaculty
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'], faculty=data['faculty'])
+    body=f'Section,Course Code,Employee Code,Day,Time Slot,Room No.\nA,CS101,F001,{day},9:00-10:00,R101\n'.encode()
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/', {
+        'file':SimpleUploadedFile('weekend.csv', body, content_type='text/csv')
+    }, format='multipart')
+    assert response.status_code==200
+    assert response.data['invalid']==1
+    assert response.data['errors'][0]['code']=='WEEKEND_SCHEDULING_NOT_ALLOWED'
+    assert not data['version'].entries.exists()
 
 def test_timetable_import_xlsx_commit_groups_faculty_and_audits(client,data):
     from faculty.models import CourseOfferingFaculty
@@ -777,3 +1107,105 @@ def test_all_faculties_with_published_assignments_receive_exact_sections(client,
         response=client.get('/api/me/faculty-timetable/')
         actual={row['id'] for row in response.data.get('sections',[])}
         assert response.status_code==200 and actual=={str(section_id) for section_id in expected}
+
+def test_exclusive_room_reservation_enforced_by_shared_policy(client,data):
+    from rooms.services.eligibility import room_section_error
+    mtech=Program.objects.create(department=data['department'],name='M.Tech Computer Science',code='MTECH-CS',duration_years=2)
+    section=Section.objects.create(program=mtech,semester=data['semester'],year=1,name='MTech-1A',student_strength=30)
+    reserved=Room.objects.create(code='516',building='Main',floor='5',capacity=40,room_type='CLASSROOM',exclusive_reservation=True,reserved_program=mtech,reserved_year=1)
+    other=Room.objects.create(code='604',building='Main',floor='6',capacity=40,room_type='LAB',exclusive_reservation=True,reserved_program=mtech,reserved_year=2)
+    assert room_section_error(reserved,section) is None
+    assert room_section_error(other,section)['code']=='MTECH_RESERVED_ROOM_REQUIRED'
+    assert room_section_error(data['room'],section)['code']=='MTECH_RESERVED_ROOM_REQUIRED'
+    assert room_section_error(reserved,data['section'])['code']=='ROOM_PROGRAM_YEAR_RESTRICTION'
+    rooms_response=client.get('/api/rooms/',{'section':str(section.pk)})
+    rows=rooms_response.data.get('results',rooms_response.data) if isinstance(rooms_response.data,dict) else rooms_response.data
+    assert [row['code'] for row in rows]==['516']
+    assert rows[0]['reserved_program_name']=='M.Tech Computer Science' and rows[0]['reserved_year']==1
+    response=client.post(f"/api/versions/{data['version'].pk}/validate-entry/",payload(data,section=str(section.pk),room=str(other.pk)),format='json')
+    assert response.status_code==200
+    assert any(item['type']=='MTECH_RESERVED_ROOM_REQUIRED' for item in response.data['conflicts'])
+    assert not data['version'].entries.exists()
+
+def test_solver_candidates_use_only_reserved_room_for_mtech_physical_offering(data):
+    mtech=Program.objects.create(department=data['department'],name='M.Tech Computer Science',code='MTECH-CS',duration_years=2)
+    section=Section.objects.create(program=mtech,semester=data['semester'],year=1,name='MTech-1A',student_strength=30)
+    offering=CourseOffering.objects.create(semester=data['semester'],section=section,course=data['course'],weekly_periods=1,default_class_type='LECTURE',required_block_size=1)
+    reserved=Room.objects.create(code='516',building='Main',floor='5',capacity=40,room_type='CLASSROOM',exclusive_reservation=True,reserved_program=mtech,reserved_year=1)
+    Room.objects.create(code='604',building='Main',floor='6',capacity=40,room_type='LAB',exclusive_reservation=True,reserved_program=mtech,reserved_year=2)
+    requirement=Requirement('mtech-req',str(offering.pk),str(section.pk),'LECTURE',1,(FacultyAssignment(str(data['faculty'].pk),'PRIMARY'),),'LAB',30)
+    profile={}
+    candidates,diagnostics=build_candidates(data['version'],[requirement],{'mode':'REBUILD_UNLOCKED','section_ids':[str(section.pk)]},profile)
+    member_ids=profile['_room_group_members']
+    physical=[candidate for rows in candidates.values() for candidate in rows if candidate.delivery_mode=='OFFLINE']
+    assert physical and not diagnostics
+    assert all(member_ids[candidate.room_id]==[str(reserved.pk)] for candidate in physical)
+
+def test_hybrid_online_import_keeps_room_empty_and_persists_delivery_mode(client,data):
+    from faculty.models import CourseOfferingFaculty
+    data['section'].delivery_policy=Section.DeliveryPolicy.HYBRID
+    data['section'].offline_weekday=0
+    data['section'].save(update_fields=['delivery_policy','offline_weekday'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    body=b'Section,Course Code,Employee Code,Day,Time Slot,Room No.\nA,CS101,F001,Tuesday,9:00-10:00,\n'
+    preview=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('hybrid.csv',body,content_type='text/csv')},format='multipart')
+    assert preview.status_code==200 and preview.data['valid']==1 and preview.data['rows'][0]['delivery_mode']=='ONLINE'
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/commit/',{'file':SimpleUploadedFile('hybrid.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==201
+    entry=data['version'].entries.get()
+    assert entry.delivery_mode=='ONLINE' and entry.room_id is None
+
+def test_room_activation_patch_is_soft_and_preserves_historical_entry(client,data):
+    entry=ScheduleEntry.objects.create(version=data['version'],section=data['section'],course_offering=data['offering'],weekday=0,start_slot=data['slots'][0],room=data['room'])
+    response=client.patch(f'/api/rooms/{data["room"].pk}/',{'active':False},format='json')
+    assert response.status_code==200 and response.data['active'] is False
+    data['room'].refresh_from_db()
+    assert data['room'].active is False and Room.objects.filter(pk=data['room'].pk).exists()
+    assert ScheduleEntry.objects.filter(pk=entry.pk,room_id=data['room'].pk).exists()
+    response=client.patch(f'/api/rooms/{data["room"].pk}/',{'active':True},format='json')
+    data['room'].refresh_from_db()
+    assert response.status_code==200 and data['room'].active is True
+
+def test_faculty_cannot_activate_or_deactivate_room(client,data):
+    client.force_authenticate(data['faculty'].user)
+    response=client.patch(f'/api/rooms/{data["room"].pk}/',{'active':False},format='json')
+    data['room'].refresh_from_db()
+    assert response.status_code==403 and data['room'].active is True
+
+def test_inactive_room_is_rejected_in_manual_entry_and_excluded_from_room_lookups(client,data):
+    data['room'].active=False;data['room'].save(update_fields=['active'])
+    entry_response=client.post(f'/api/versions/{data["version"].pk}/entries/',payload(data),format='json')
+    assert entry_response.status_code==400 and any(item['code']=='ROOM_INACTIVE' for item in entry_response.data['conflicts'])
+    available=client.get(f'/api/versions/{data["version"].pk}/available-rooms/',{'weekday':0,'start_slot':data['slots'][0].pk,'section':data['section'].pk})
+    assert available.status_code==200 and all(item['id']!=str(data['room'].pk) for item in available.data)
+    choices=client.get('/api/rooms/',{'section':str(data['section'].pk)})
+    rows=choices.data.get('results',choices.data) if isinstance(choices.data,dict) else choices.data
+    assert all(item['id']!=str(data['room'].pk) for item in rows)
+
+def test_inactive_room_is_not_a_solver_candidate(data):
+    data['room'].active=False;data['room'].save(update_fields=['active'])
+    requirement=Requirement('inactive-room-req',str(data['offering'].pk),str(data['section'].pk),'LECTURE',1,(FacultyAssignment(str(data['faculty'].pk),'PRIMARY'),),'CLASSROOM',data['section'].student_strength)
+    candidates,diagnostics=build_candidates(data['version'],[requirement],{'mode':'REBUILD_UNLOCKED'})
+    assert not candidates['inactive-room-req']
+    assert any(item['code']=='NO_VALID_PLACEMENT' for item in diagnostics)
+
+def test_inactive_room_is_rejected_in_timetable_import(client,data):
+    from faculty.models import CourseOfferingFaculty
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    data['room'].active=False;data['room'].save(update_fields=['active'])
+    body=b'Section,Course Code,Employee Code,Day,Time Slot,Room No.\nA,CS101,F001,Monday,9:00-10:00,R101\n'
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('inactive-room.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==200 and response.data['invalid']==1
+    assert response.data['errors'][0]['code']=='ROOM_INACTIVE'
+
+def test_inactive_exclusive_mtech_room_fails_preflight_without_fallback(data):
+    from faculty.models import CourseOfferingFaculty
+    from scheduling.solver.service import preflight_generation
+    mtech=Program.objects.create(department=data['department'],name='M.Tech Computer Science',code='MTECH-CS',duration_years=2)
+    section=Section.objects.create(program=mtech,semester=data['semester'],year=1,name='MTech-1A',student_strength=30)
+    offering=CourseOffering.objects.create(semester=data['semester'],section=section,course=data['course'],weekly_periods=1,default_class_type='LECTURE',required_block_size=1)
+    CourseOfferingFaculty.objects.create(course_offering=offering,faculty=data['faculty'])
+    Room.objects.create(code='516',building='Main',floor='5',capacity=50,room_type='CLASSROOM',active=False,exclusive_reservation=True,reserved_program=mtech,reserved_year=1)
+    result=preflight_generation(data['version'],{'mode':'REBUILD_UNLOCKED','section_ids':[str(section.pk)]})
+    assert not result['valid']
+    assert any(error['code']=='MTECH_RESERVED_ROOM_UNAVAILABLE' and error['room_code']=='516' for error in result['errors'])

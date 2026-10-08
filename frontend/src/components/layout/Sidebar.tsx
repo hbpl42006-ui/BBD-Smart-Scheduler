@@ -8,10 +8,8 @@ import { me } from '@/lib/api/auth';
 import type { Role } from '@/lib/permissions';
 import { canReviewTimetables } from '@/lib/permissions';
 import {
-  BookOpen,
   LayoutDashboard,
   Settings,
-  Users,
   Building,
   Clock,
   Table,
@@ -34,7 +32,8 @@ import {
 
 const navItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, group: 'Workspace' },
-  { title: 'My Timetable', url: '/my-timetable', icon: CalendarDays, group: 'Workspace' },
+  { title: 'My Timetable', url: '/my-timetable', icon: CalendarDays, group: 'Scheduling' },
+  { title: 'My Workload', url: '/my-workload', icon: CalendarDays, group: 'Scheduling' },
   { title: 'Academic Setup', url: '/academic-setup', icon: Settings, group: 'Academic Setup', items: [
     { title: 'Sessions', url: '/academic-setup/sessions' }, { title: 'Semesters', url: '/academic-setup/semesters' },
     { title: 'Programs', url: '/academic-setup/programs' }, { title: 'Courses', url: '/courses' },
@@ -44,11 +43,13 @@ const navItems = [
   ] },
   { title: 'Faculty Availability', url: '/faculty-arrangements/availability', icon: Clock, group: 'Scheduling' },
   { title: 'Timetables', url: '/timetables', icon: Table, group: 'Scheduling' },
+  { title: 'Section Timetables', url: '/section-timetables', icon: CalendarDays, group: 'Scheduling' },
   { title: 'Room Allocation', url: '/room-allocation', icon: Building, group: 'Scheduling' },
   { title: 'Faculty Arrangements', url: '/faculty-arrangements', icon: CalendarDays, group: 'Operations', items: [
     { title: 'Arrangements', url: '/faculty-arrangements' },
     { title: 'Faculty Availability', url: '/faculty-arrangements/availability' },
   ] },
+  { title: 'Faculty Workload', url: '/faculty-workload', icon: CalendarDays, group: 'Scheduling' },
   { title: 'Reports', url: '/reports', icon: FileText, group: 'Reporting' },
   { title: 'Notifications', url: '/notifications', icon: Bell, group: 'System' },
   { title: 'Data Reset', url: '/system/data-reset', icon: Settings, group: 'System' },
@@ -59,7 +60,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [role, setRole] = React.useState<Role>();
   React.useEffect(() => { me().then(user => setRole(user.role as Role)).catch(() => setRole(undefined)); }, []);
-  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' || role === 'FACULTY') && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
+  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' && item.url !== '/my-workload' || role === 'FACULTY') && (item.url !== '/faculty-workload' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/section-timetables' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
 
   return (
     <Sidebar className="no-print">

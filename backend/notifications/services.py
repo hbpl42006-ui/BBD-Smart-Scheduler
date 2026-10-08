@@ -93,6 +93,36 @@ def notify_arrangement_after_commit(arrangement, event, actor=None, old_substitu
     from django.db import transaction
     transaction.on_commit(lambda: notify_arrangement_event(arrangement, event, actor, old_substitute))
 
+def notify_arrangement_attendance_after_commit(arrangement, evidence, actor=None):
+    """Notify only the original faculty when assigned evidence is persisted."""
+    from django.db import transaction
+    arrangement_id=str(arrangement.pk); evidence_id=str(evidence.pk); actor_id=getattr(actor,'pk',None)
+    def create_notice():
+        from faculty.models import ArrangementAttendanceEvidence, FacultyArrangement
+        from faculty.arrangement_views import faculty_name
+        from accounts.models import User
+        item=FacultyArrangement.objects.select_related(
+            'absent_faculty__user','substitute_faculty__user','schedule_entry__start_slot',
+            'schedule_entry__course_offering__course','schedule_entry__section',
+        ).filter(pk=arrangement_id).first()
+        uploaded=ArrangementAttendanceEvidence.objects.filter(pk=evidence_id,arrangement_id=arrangement_id).first()
+        if not item or not uploaded or not item.absent_faculty.user_id:return
+        original_user=item.absent_faculty.user
+        if actor_id and str(original_user.pk)==str(actor_id):return
+        entry=item.schedule_entry
+        date=item.arrangement_date.strftime('%d %b %Y')
+        title=f'Attendance uploaded for {entry.course_offering.course.code} - {entry.section}'
+        message=(f'{faculty_name(item.substitute_faculty)} uploaded attendance for your class on '
+                 f'{date}, {entry.start_slot.label}.\nCourse: {entry.course_offering.course.code} - '
+                 f'{entry.course_offering.course.name}\nSection: {entry.section}\n'
+                 f'File: {uploaded.original_filename}')
+        recipient=User.objects.filter(pk=original_user.pk,is_active=True).first()
+        if recipient:
+            notify(event_type='ARRANGEMENT_ATTENDANCE_UPLOADED',recipients=[recipient],title=title,message=message,
+                   action_url=f'/faculty-arrangements/attendance/{arrangement_id}/{evidence_id}',
+                   metadata={'arrangement_id':arrangement_id,'evidence_id':evidence_id},actor=actor)
+    transaction.on_commit(create_notice)
+
 def _entry_snapshot(entry):
     faculty=tuple(sorted(str(x) for x in entry.faculty_assignments.values_list('faculty_id',flat=True)))
     return {'section':str(entry.section_id),'course_offering':str(entry.course_offering_id),'course_code':entry.course_offering.course.code,'course_name':entry.course_offering.course.name,'weekday':entry.weekday,'start_slot':str(entry.start_slot_id),'start_label':entry.start_slot.label,'block_length':entry.block_length,'room':str(entry.room_id) if entry.room_id else None,'room_label':entry.room.code if entry.room else '','faculty':faculty}

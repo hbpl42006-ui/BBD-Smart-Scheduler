@@ -7,6 +7,7 @@ const entryLabel = (entry?: GenerationPreflightError['entry_1']) => entry ? `${e
 
 export function PreflightDiagnostics({ result }: { result: GenerationPreflightResult }) {
   const [showAll, setShowAll] = useState(false);
+  const [showWeeklyOffMappings, setShowWeeklyOffMappings] = useState(false);
   const errors = result.errors ?? [];
   const count = (code: string) => errors.filter(error => error.code === code).length;
   const patterns = errors.filter(error => error.code === 'INVALID_SESSION_PATTERN');
@@ -22,5 +23,12 @@ export function PreflightDiagnostics({ result }: { result: GenerationPreflightRe
     {clashes.length > 0 && <div className="overflow-x-auto"><h3 className="font-medium">{retainedLabel} entry conflicts</h3><table className="w-full border-collapse text-left text-xs"><thead><tr>{['Type', 'Day', 'Time', 'Resource', 'Entry A', 'Entry B'].map(label => <th className="border p-2" key={label}>{label}</th>)}</tr></thead><tbody>{clashes.slice(0, limit).map((error, index) => <tr key={`${error.code}-${error.slot_id}-${index}`}><td className="border p-2">{error.code?.replace('LOCKED_', '').replace('_CLASH', '')}</td><td className="border p-2">{error.day}</td><td className="border p-2">{error.time_slot}</td><td className="border p-2">{error.resource}</td><td className="border p-2">{entryLabel(error.entry_1)}</td><td className="border p-2">{entryLabel(error.entry_2)}</td></tr>)}</tbody></table></div>}
     {other.slice(0, limit).map((error, index) => <p className="text-red-700" key={`${error.code}-${index}`}>{error.code}: {error.message}</p>)}
     {errors.length > 20 && <button type="button" className="text-blue-700 underline" onClick={() => setShowAll(value => !value)}>{showAll ? 'Show fewer errors' : `Show all ${errors.length} errors`}</button>}
+    <div className="rounded border border-slate-200 bg-white p-3 text-slate-700">
+      <p>Weekly OFF-day policies: {result.statistics?.weekly_off_policy_count ?? 0} | Full-week sections: {result.statistics?.no_weekly_off_policy_count ?? 0} | Source-confirmed sections: {result.statistics?.source_confirmed_section_count ?? 0} | Missing OFF-day sources: {result.statistics?.missing_off_day_source_count ?? count('OFF_DAY_SOURCE_MISSING')} | Locked OFF-day conflicts: {result.statistics?.locked_off_day_conflict_count ?? count('LOCKED_ENTRY_ON_SECTION_OFF_DAY')} | Capacity conflicts: {result.statistics?.section_weekly_capacity_conflict_count ?? count('SECTION_WEEKLY_CAPACITY_EXCEEDED')}</p>
+      {(result.statistics?.weekly_off_day_mappings?.length ?? 0) > 0 && <>
+        <button type="button" className="mt-2 text-blue-700 underline" onClick={() => setShowWeeklyOffMappings(value => !value)}>{showWeeklyOffMappings ? 'Hide weekly OFF-day mappings' : 'Show weekly OFF-day mappings'}</button>
+        {showWeeklyOffMappings && <div className="mt-2 grid gap-3 sm:grid-cols-2">{[2, 3].map(year => <section key={year}><h3 className="font-medium">Year {year}</h3><ul className="list-inside list-disc">{result.statistics?.weekly_off_day_mappings?.filter(item => item.year === year).map(item => <li key={item.section_id}>{item.section} - {item.day}</li>)}</ul></section>)}</div>}
+      </>}
+    </div>
   </div>;
 }

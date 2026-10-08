@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
+from institutions.models import Department
 import uuid
 
 class Role(models.TextChoices):
@@ -30,6 +31,9 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
+    class ManagementScope(models.TextChoices):
+        HOD = 'HOD', _('Head of Department')
+        DEAN = 'DEAN', _('Dean')
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True)
     first_name = models.CharField(max_length=150, blank=True)
@@ -37,6 +41,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     employee_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
     whatsapp_number = models.CharField(max_length=20, blank=True, default='')
     role = models.CharField(max_length=50, choices=Role.choices, default=Role.READ_ONLY_VIEWER)
+    management_scope = models.CharField(max_length=10, choices=ManagementScope.choices, blank=True, default='')
+    managed_departments = models.ManyToManyField(Department, blank=True, related_name='authorized_managers')
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

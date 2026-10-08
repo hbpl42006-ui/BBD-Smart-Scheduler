@@ -94,3 +94,37 @@ def test_valid_employee_code_creates_assignment(offering_import_fixture):
     assert result['warnings'] == 0
     commit(prepared)
     assert CourseOfferingFaculty.objects.filter(faculty=data['faculty']).count() == 1
+
+
+@pytest.mark.parametrize(('source', 'canonical'), [('LGF-001', 'LGF001'), ('LGF1', 'LGF001'), ('UGF-12', 'UGF012'), ('UGF13', 'UGF013'), ('UGF-013', 'UGF013')])
+def test_room_punctuation_alias_resolves_only_canonical_existing_room(offering_import_fixture, source, canonical):
+    data = offering_import_fixture
+    room = Room.objects.create(code=canonical, building='Main', floor='0', capacity=60, room_type='CLASSROOM')
+    source_row = row(data, data['faculty'].employee_code)
+    source_row['Room No.'] = source
+    result, prepared = parse([source_row])
+    assert result['valid'] == 1
+    assert prepared[0][6] == room
+
+
+def test_ambiguous_room_alias_remains_invalid(offering_import_fixture):
+    data = offering_import_fixture
+    Room.objects.create(code='Lab1', building='Main', floor='1', capacity=60, room_type='LAB')
+    Room.objects.create(code='LAB-1', building='Main', floor='1', capacity=60, room_type='LAB')
+    source_row = row(data, data['faculty'].employee_code)
+    source_row['Room No.'] = 'LAB1'
+    result, prepared = parse([source_row])
+    assert result['valid'] == 0
+    assert 'ambiguous' in result['errors'][0]['message'].lower()
+    assert 'Lab1' in result['errors'][0]['message']
+    assert 'LAB-1' in result['errors'][0]['message']
+
+
+def test_preview_exposes_activity_type_and_blank_room_is_allowed(offering_import_fixture):
+    source_row = row(offering_import_fixture, offering_import_fixture['faculty'].employee_code)
+    source_row['Room No.'] = ''
+    source_row['Activity Type'] = 'LECTURE'
+    result, _prepared = parse([source_row])
+    assert result['valid'] == 1
+    assert result['rows'][0]['activity_type'] == 'LECTURE'
+    assert result['rows'][0]['preferred_room'] is None

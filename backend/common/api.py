@@ -2,11 +2,15 @@ from django.db.models import Q
 from django.db.models.deletion import ProtectedError
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.http import HttpResponse
+from rest_framework.exceptions import ValidationError
+from rest_framework.renderers import BaseRenderer
 import logging
 from openpyxl import Workbook
+from academics.delivery import get_section_delivery_policy
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts.models import User
@@ -21,6 +25,25 @@ from common.serializers import *
 from common.imports import rows_from_upload, validate, commit, SPECS
 from common.import_services import faculty_import_safe as faculty_import_rows, course_import as course_import_rows, mapping_import, section_import, availability_import, FacultyImportCommitError
 from common.course_offering_import import parse as parse_course_offerings, commit as commit_course_offerings, template as course_offering_template
+from common.export_utils import export_response
+
+
+class ExportFileRenderer(BaseRenderer):
+    """Negotiation marker: export actions return their own file HttpResponse."""
+    charset = None
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
+
+
+class XLSXExportRenderer(ExportFileRenderer):
+    media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    format = 'xlsx'
+
+
+class CSVExportRenderer(ExportFileRenderer):
+    media_type = 'text/csv'
+    format = 'csv'
 
 class LoginSerializer(TokenObtainPairSerializer):
     username_field = 'email'
@@ -31,8 +54,21 @@ class LoginView(TokenObtainPairView):
 
 class BaseViewSet(viewsets.ModelViewSet):
     permission_classes = [RolePermission]
+    filter_backends = [*viewsets.ModelViewSet.filter_backends, SearchFilter]
     filterset_fields = {'id': ['exact']}
     search_fields = ()
+    export_columns = ()
+    export_title = ''
+    export_sheet = ''
+    @action(detail=False, methods=['get'], url_path='export', renderer_classes=[*viewsets.ModelViewSet.renderer_classes, XLSXExportRenderer, CSVExportRenderer])
+    def export(self, request):
+        if not self.export_columns:
+            return Response({'detail':'Export is not available for this resource.'}, status=404)
+        file_format = request.query_params.get('format', 'xlsx').lower()
+        if file_format not in {'xlsx', 'csv'}:
+            raise ValidationError({'format':'Choose xlsx or csv.'})
+        queryset = self.filter_queryset(self.get_queryset())
+        return export_response(queryset, file_format, self.export_sheet, self.export_columns, self.export_title)
     def perform_destroy(self, instance):
         if hasattr(instance, 'active'):
             instance.active = False; instance.save(update_fields=['active'])
@@ -45,9 +81,17 @@ class DepartmentViewSet(BaseViewSet): queryset=Department.objects.select_related
 class ProgramViewSet(BaseViewSet): queryset=Program.objects.select_related('department'); serializer_class=ProgramSerializer; filterset_fields=('department',); search_fields=('name','code')
 class AcademicSessionViewSet(BaseViewSet): queryset=AcademicSession.objects.select_related('institution'); serializer_class=AcademicSessionSerializer; filterset_fields=('institution','is_active')
 class SemesterViewSet(BaseViewSet): queryset=Semester.objects.select_related('session'); serializer_class=SemesterSerializer; filterset_fields=('session','type')
-class SectionViewSet(BaseViewSet): queryset=Section.objects.select_related('program','semester','coordinator'); serializer_class=SectionSerializer; filterset_fields=('program','semester','year')
+class SectionViewSet(BaseViewSet):
+    queryset=Section.objects.select_related('program__department','semester__session','coordinator'); serializer_class=SectionSerializer; filterset_fields=('program','semester','year'); search_fields=('name','program__name','program__code')
+    export_title='Sections'; export_sheet='Sections'
+    export_columns=(('Session',lambda x:x.semester.session.name),('Semester',lambda x:x.semester.name),('Program',lambda x:x.program.name),('Academic Level / Year',lambda x:f'Year {x.year}'),('Section',lambda x:x.name),('Student Strength',lambda x:x.student_strength),('Class Coordinator',lambda x:(f'{x.coordinator.first_name} {x.coordinator.last_name}'.strip() or x.coordinator.email) if x.coordinator_id else ''),('Branch',lambda x:f'{x.program.code} - {x.program.department.name}'))
+    def get_queryset(self):
+        queryset=super().get_queryset(); session=self.request.query_params.get('session')
+        return queryset.filter(semester__session_id=session) if session else queryset
 class CourseViewSet(BaseViewSet):
     queryset=Course.objects.all(); serializer_class=CourseSerializer; search_fields=('code','name','short_code')
+    export_title='Courses'; export_sheet='Courses'
+    export_columns=(('Course Code',lambda x:x.code),('Course Name',lambda x:x.name),('Short Code',lambda x:x.short_code),('Credits',lambda x:x.credit),('Active',lambda x:'Yes' if x.active else 'No'))
     def get_queryset(self):
         queryset=super().get_queryset()
         status_filter = self.request.query_params.get('status', 'active').lower()
@@ -69,12 +113,23 @@ class CourseViewSet(BaseViewSet):
     @action(detail=True, methods=['post'], url_path='restore')
     def restore(self, request, pk=None):
         course = Course.objects.get(pk=pk); course.active = True; course.save(update_fields=['active']); return Response(self.get_serializer(course).data)
-class CourseOfferingViewSet(BaseViewSet): queryset=CourseOffering.objects.select_related('course','section','semester','preferred_room').prefetch_related('faculties__faculty'); serializer_class=CourseOfferingSerializer; filterset_fields=('semester','section','course','active')
+class CourseOfferingViewSet(BaseViewSet):
+    queryset=CourseOffering.objects.select_related('course','section__program','semester__session','preferred_room').prefetch_related('faculties__faculty__department'); serializer_class=CourseOfferingSerializer; filterset_fields=('semester','section','course','active','default_class_type')
+    search_fields=('course__code','course__name','section__name','faculties__faculty__employee_code','faculties__faculty__name')
+    export_title='Course_Offerings'; export_sheet='Course Offerings'
+    export_columns=(('Session',lambda x:x.semester.session.name),('Semester',lambda x:x.semester.name),('Course Code',lambda x:x.course.code),('Course Name',lambda x:x.course.name),('Section',lambda x:x.section.name),('Activity Type',lambda x:x.get_default_class_type_display()),('Weekly Periods',lambda x:x.weekly_periods),('Block Size',lambda x:x.required_block_size),('Allow Remainder Period',lambda x:'Yes' if x.allow_remainder_period else 'No'),('Faculty Employee Code',lambda x:', '.join(sorted((a.faculty.employee_code or '') for a in x.faculties.all() if a.faculty.employee_code))),('Faculty Name',lambda x:', '.join(sorted((a.faculty.name or a.faculty.initials or a.faculty.employee_code or '') for a in x.faculties.all()))),('Faculty Roles',lambda x:', '.join(sorted(a.role for a in x.faculties.all()))),('Preferred Room',lambda x:x.preferred_room.code if x.preferred_room_id else ''),('Room Type Requirement',lambda x:x.room_type_requirement),('Delivery Policy',lambda x:get_section_delivery_policy(x.section,x.semester)[0]),('Active',lambda x:'Yes' if x.active else 'No'))
+    def get_queryset(self):
+        queryset=super().get_queryset(); session=self.request.query_params.get('session'); faculty=self.request.query_params.get('faculty')
+        if session: queryset=queryset.filter(semester__session_id=session)
+        if faculty: queryset=queryset.filter(faculties__faculty_id=faculty).distinct()
+        return queryset
 class FacultyViewSet(BaseViewSet):
     queryset=Faculty.objects.select_related('user','department')
     serializer_class=FacultySerializer
     filterset_fields=('department',)
     search_fields=('user__first_name','user__last_name','user__email','employee_code','initials')
+    export_title='Faculty'; export_sheet='Faculty'
+    export_columns=(('Faculty Name',lambda x:x.name or (f'{x.user.first_name} {x.user.last_name}'.strip() if x.user_id else '') or x.initials or x.employee_code or ''),('Employee Code',lambda x:x.employee_code or ''),('Initials',lambda x:x.initials),('Department',lambda x:x.department.name),('Email',lambda x:x.email or (x.user.email if x.user_id else '')),('Login/User Linked',lambda x:'Yes' if x.user_id else 'No'),('Max Daily Periods',lambda x:x.max_daily_periods),('Max Weekly Periods',lambda x:x.max_weekly_periods),('Active',lambda x:'Yes' if x.active else 'No'))
     def get_queryset(self):
         queryset=super().get_queryset()
         status_filter = self.request.query_params.get('status', 'active').lower()
@@ -113,7 +168,48 @@ class FacultyViewSet(BaseViewSet):
         serializer.is_valid(raise_exception=True); serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 class FacultyAvailabilityViewSet(BaseViewSet): queryset=FacultyAvailability.objects.select_related('faculty','time_slot'); serializer_class=FacultyAvailabilitySerializer; filterset_fields=('faculty','weekday','is_available')
-class RoomViewSet(BaseViewSet): queryset=Room.objects.all(); serializer_class=RoomSerializer; filterset_fields=('building','floor','room_type','active','has_projector'); search_fields=('code','building')
+class RoomViewSet(BaseViewSet):
+    queryset=Room.objects.select_related('reserved_program'); serializer_class=RoomSerializer; filterset_fields=('building','floor','room_type','active','has_projector','allowed_year'); search_fields=('code','building')
+    export_title='Rooms_and_Labs'; export_sheet='Rooms & Labs'
+    export_columns=(('Room No.',lambda x:x.code),('Building',lambda x:x.building),('Floor',lambda x:x.floor),('Capacity',lambda x:x.capacity),('Room Type',lambda x:x.get_room_type_display()),('Projector',lambda x:'Yes' if x.has_projector else 'No'),('Allowed Year',lambda x:f'Year {x.allowed_year} Only' if x.allowed_year else 'All Years'),('Exclusive Program',lambda x:x.reserved_program.name if x.reserved_program_id else ''),('Exclusive Year',lambda x:f'Year {x.reserved_year}' if x.reserved_year else ''),('Active',lambda x:'Yes' if x.active else 'No'))
+    def get_queryset(self):
+        queryset=super().get_queryset()
+        section_id=self.request.query_params.get('section')
+        course_offering_id=self.request.query_params.get('course_offering')
+        from rooms.services.eligibility import required_course_room_code, required_mtech_room_code, room_section_error
+        from academics.models import Section
+        section=None;offering=None
+        if section_id:
+            from django.db.models import Q
+            section=Section.objects.select_related('program').filter(pk=section_id).first()
+            if not section:return queryset.none()
+            required_code=required_mtech_room_code(section)
+            offering=None
+            if course_offering_id:
+                from academics.models import CourseOffering
+                offering=CourseOffering.objects.select_related('course').filter(pk=course_offering_id,section=section).first()
+                required_code=required_course_room_code(offering) if offering else required_code
+            allowed_year=Q(allowed_year__isnull=True)|Q(allowed_year=section.year)
+            reservation_allowed=Q(exclusive_reservation=False)|Q(reserved_program_id=section.program_id,reserved_year=section.year)
+            if offering:
+                exception=Q(eligibility_exceptions__active=True,eligibility_exceptions__allow=True,eligibility_exceptions__program_id=section.program_id,eligibility_exceptions__year=section.year,eligibility_exceptions__course=offering.course)
+                allowed_year|=exception
+                reservation_allowed|=exception
+            queryset=queryset.filter(active=True).filter(allowed_year)
+            if required_code:
+                queryset=queryset.filter(code=required_code)
+            else:
+                queryset=queryset.filter(reservation_allowed)
+            queryset=queryset.distinct()
+        year=self.request.query_params.get('year')
+        if year not in (None,'') and not section_id:
+            try: year=int(year)
+            except ValueError: return queryset.none()
+            queryset=queryset.filter(Q(allowed_year__isnull=True)|Q(allowed_year=year))
+        queryset=queryset.select_related('reserved_program')
+        if section:
+            queryset=queryset.filter(pk__in=[room.pk for room in queryset if not room_section_error(room,section,offering.course if offering else None,required_course_room_code(offering) if offering else None)])
+        return queryset
 class RoomAvailabilityViewSet(BaseViewSet): queryset=RoomAvailability.objects.select_related('room','time_slot'); serializer_class=RoomAvailabilitySerializer; filterset_fields=('room','weekday','status')
 class TimeSlotTemplateViewSet(BaseViewSet): queryset=TimeSlotTemplate.objects.select_related('institution'); serializer_class=TimeSlotTemplateSerializer; filterset_fields=('institution',)
 class TimeSlotViewSet(BaseViewSet): queryset=TimeSlot.objects.select_related('template'); serializer_class=TimeSlotSerializer; filterset_fields=('template','is_break')
@@ -186,9 +282,9 @@ def room_import_template(request):
     if not (request.user.is_superuser or request.user.role in WRITE_ROLES):
         return Response({'detail':'You do not have permission to import rooms.'}, status=403)
     workbook = Workbook(); sheet = workbook.active; sheet.title = 'Rooms'
-    sheet.append(['Room No.', 'Building', 'Floor', 'Capacity', 'Room Type', 'Projector', 'Active'])
-    sheet.append(['401', 'Main', '4', 60, 'Classroom', 'Yes', 'true'])
-    sheet.append(['402', 'Main', '4', 60, 'Classroom', 'No', 'true'])
+    sheet.append(['Room No.', 'Building', 'Floor', 'Capacity', 'Room Type', 'Projector', 'Active', 'Allowed Year'])
+    sheet.append(['401', 'Main', '4', 60, 'Classroom', 'Yes', 'true', 'ALL'])
+    sheet.append(['402', 'Main', '4', 60, 'Classroom', 'No', 'true', 'ALL'])
     from io import BytesIO
     stream = BytesIO(); workbook.save(stream)
     return HttpResponse(stream.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition':'attachment; filename="rooms-import-template.xlsx"'})

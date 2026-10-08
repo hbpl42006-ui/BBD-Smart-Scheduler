@@ -17,9 +17,9 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ('role', 'is_active', 'is_staff', 'is_superuser')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'last_name', 'employee_id', 'role')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'employee_id', 'role', 'management_scope', 'managed_departments')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'created_at', 'updated_at')}),
     )
-    add_fieldsets = ((None, {'classes': ('wide',), 'fields': ('email', 'password1', 'password2', 'role', 'is_staff', 'is_active')}),)
+    add_fieldsets = ((None, {'classes': ('wide',), 'fields': ('email', 'password1', 'password2', 'role', 'management_scope', 'managed_departments', 'is_staff', 'is_active')}),)
     readonly_fields = ('last_login', 'created_at', 'updated_at')

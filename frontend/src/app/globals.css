@@ -143,6 +143,7 @@
 .official-table th:first-child { width: 72px; }
 .official-table th:nth-child(2) { width: 52px; }
 .official-table td { height: 43px; word-break: break-word; font-size: 9px; }
+.official-off-day-label { display: block; color: #64748b; font-size: 8px; font-weight: 500; }
 .official-table .section-label { width: 72px; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; font-weight: 700; }
 .official-table thead .section-label { font-size: 0; }
 .official-table .time-label { width: 52px; }
@@ -164,6 +165,44 @@
 .signature-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 12px; text-align: center; font-size: 10px; line-height: 1.2; }
 .signature-footer div { padding-top: 5px; }
 .empty-official { padding: 40px; text-align: center; }
+.workload-sheet { page: workload; width: 100%; margin: 0 auto; padding: 16px; color: #111; background: #fff; font-family: Arial, Helvetica, sans-serif; }
+.workload-heading { text-align: center; line-height: 1.25; margin-bottom: 16px; }
+.workload-heading h1 { font: bold 22px Georgia, serif; }
+.workload-heading h2 { font: bold 16px Georgia, serif; }
+.workload-heading h3 { margin-top: 8px; font-size: 18px; font-weight: 700; }
+.workload-identity { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; font-size: 12px; }
+.workload-scroll { overflow-x: auto; }
+.workload-table { min-width: 980px; width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.workload-table th, .workload-table td { border: 1px solid #333; padding: 5px; text-align: center; vertical-align: top; }
+.workload-table th:first-child { width: 95px; }
+.workload-table td { height: 92px; }
+.workload-break { background: #e2e8f0; font-weight: 700; vertical-align: middle !important; }
+.workload-break-label { text-align: center; }
+.workload-conflict { display: block; margin-bottom: 4px; color: #b91c1c; font-size: 9px; }
+.workload-entry { display: flex; flex-direction: column; gap: 2px; margin: 1px 0 5px; padding: 4px; border-radius: 3px; background: #eff6ff; text-align: left; overflow-wrap: anywhere; }
+.workload-entry span { font-size: 9px; }
+.workload-summary { margin-top: 14px; }
+.workload-summary h4 { margin-bottom: 6px; font-size: 14px; font-weight: 700; }
+.workload-summary > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.workload-summary span { display: flex; justify-content: space-between; gap: 6px; border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; }
+/* Section-wise administrative timetable grid. */
+.section-timetable-grid th, .section-timetable-grid td { border: 1px solid #cbd5e1; }
+.section-timetable-cell { min-width: 145px; padding: 5px; }
+.section-entry-card { min-height: 100%; border-radius: 5px; padding: 7px; background: #f8fafc; color: #1e293b; }
+.section-entry-fixed { border-left: 3px solid #475569; background: #f1f5f9; }
+.section-fixed-badge { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; border-radius: 999px; background: #e2e8f0; padding: 2px 5px; color: #334155; font-size: 9px; font-weight: 600; }
+.section-break-row th, .section-break-cell { background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-align: center; }
+@media print {
+  @page workload { size: A4 landscape; margin: 7mm; }
+  .no-print { display: none !important; }
+  .workload-sheet { padding: 0; }
+  .workload-scroll { overflow: visible; }
+  .workload-table { min-width: 0; font-size: 8pt; }
+  .workload-table td { height: 74px; }
+  .workload-entry { padding: 2px; }
+  .workload-entry span { font-size: 7pt; }
+  .workload-summary > div { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 /* Official BBDU sheet: keep the document dense and readable on screen and in print. */
 .official-sheet { min-width: 980px; padding: 10px; }
 .official-heading h1 { font-family: 'Times New Roman', Times, serif; font-size: 22px; }
@@ -205,4 +244,65 @@
   .report-print-sheet .report-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
   .report-print-sheet .report-table th, .report-print-sheet .report-table td { border: 1px solid #cbd5e1; padding: 4px 6px; white-space: normal; }
   .report-print-sheet .report-table button { color: inherit; }
+}
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  .official-off-day-label { display: none !important; }
+  body:has(.section-timetable-print-root) * { visibility: hidden !important; }
+  body:has(.section-timetable-print-root) .section-timetable-print-root,
+  body:has(.section-timetable-print-root) .section-timetable-print-root * { visibility: visible !important; }
+  .section-no-print { display: none !important; }
+  .section-timetable-page { position: static; padding: 0 !important; margin: 0 !important; }
+  .section-timetable-print-root { position: absolute; inset: 0 auto auto 0; width: 100%; overflow: visible !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .section-timetable-grid-wrap { overflow: visible !important; padding: 0 !important; }
+  .section-timetable-grid { min-width: 0 !important; font-size: 7pt !important; }
+  .section-timetable-grid th, .section-timetable-grid td { border: 1px solid #64748b !important; padding: 3px !important; }
+  .section-timetable-cell { min-width: 0; }
+  .section-entry-card { padding: 3px !important; border: 0 !important; background: #fff !important; }
+  .section-fixed-badge { font-size: 6pt !important; }
+}
+
+/* Official university sheet used by section timetable preview and browser print. */
+.section-timetable-print-root { background: #fff; }
+.section-timetable-print-root .official-sheet { min-width: 1120px; max-width: 1500px; margin: 0 auto; border: 0; padding: 12px; font-family: 'Times New Roman', Times, serif; }
+.section-timetable-print-root .official-heading { margin-bottom: 8px; }
+.section-timetable-print-root .official-heading h1 { font-size: 23px; }
+.section-timetable-print-root .official-heading h2 { font-size: 16px; }
+.section-timetable-print-root .official-heading h3 { font-size: 13px; }
+.section-timetable-print-root .official-heading p { margin: 2px 0; font-size: 12px; font-weight: 700; }
+.section-timetable-print-root .official-status { margin: 0 0 4px; text-align: right; color: #555; font: 9px Arial, sans-serif; }
+.section-timetable-print-root .official-grid-scroll { overflow: visible; }
+.section-timetable-print-root .official-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.section-timetable-print-root .official-table th, .section-timetable-print-root .official-table td { border: 1px solid #000; padding: 3px 2px; text-align: center; vertical-align: middle; }
+.section-timetable-print-root .official-table thead th { height: 28px; background: #ffe600; color: #000; font-size: 10px; font-weight: 700; }
+.section-timetable-print-root .official-table .section-label { width: 30px; background: #fff; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; line-height: 1.3; }
+.section-timetable-print-root .official-table thead .section-label { background: #fff; }
+.section-timetable-print-root .official-table .day-label { width: 42px; background: #ffe600; font-size: 10px; font-weight: 700; }
+.section-timetable-print-root .official-table tbody td { height: 55px; font-size: 10px; overflow-wrap: anywhere; }
+.section-timetable-print-root .official-table .lunch-heading { width: 28px; }
+.section-timetable-print-root .official-table .lunch-cell { width: 28px; padding: 2px; background: #fff; font-size: 12px; font-weight: 700; }
+.section-timetable-print-root .official-table .compact-entry { font-size: 10px; line-height: 1.2; font-weight: 700; }
+.section-timetable-print-root .official-lock { font-size: 8px; }
+.section-timetable-print-root .official-coordinator { display: flex; justify-content: space-between; gap: 12px; margin-top: -1px; padding: 5px 7px; border: 1px solid #000; background: #ffe600; font-size: 10px; font-weight: 700; }
+.section-timetable-print-root .course-table { margin-top: 6px; border-collapse: collapse; table-layout: fixed; }
+.section-timetable-print-root .course-table th, .section-timetable-print-root .course-table td { border: 1px solid #000; padding: 3px 4px; font-size: 9px; overflow-wrap: anywhere; }
+.section-timetable-print-root .course-table th { background: #ffe600; text-align: center; }
+.section-timetable-print-root .course-table td { text-align: left; }
+.section-timetable-print-root .official-legend { margin: 5px 0 0; font-size: 9px; }
+.section-timetable-print-root .signature-footer { margin-top: 12px; font-size: 9px; }
+@media print {
+  @page { size: A4 landscape; margin: 5mm; }
+  body:has(.section-timetable-print-root) * { visibility: hidden !important; }
+  body:has(.section-timetable-print-root) .section-timetable-print-root,
+  body:has(.section-timetable-print-root) .section-timetable-print-root * { visibility: visible !important; }
+  .section-no-print { display: none !important; }
+  .section-timetable-page { position: static; padding: 0 !important; margin: 0 !important; }
+  .section-timetable-print-root { position: absolute; inset: 0 auto auto 0; width: 100%; overflow: visible !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+  .section-timetable-print-root .official-sheet { width: 100%; min-width: 0; max-width: none; margin: 0; padding: 0; }
+  .section-timetable-print-root .official-table, .section-timetable-print-root .course-table, .section-timetable-print-root .official-coordinator, .section-timetable-print-root .signature-footer { break-inside: avoid; page-break-inside: avoid; }
+  .section-timetable-print-root .official-table thead th { height: 24px; font-size: 8px; }
+  .section-timetable-print-root .official-table tbody td { height: 43px; font-size: 8px; }
+  .section-timetable-print-root .official-table .compact-entry { font-size: 8px; }
+  .section-timetable-print-root .course-table th, .section-timetable-print-root .course-table td { padding: 2px 3px; font-size: 7.5px; }
+  .section-timetable-print-root .signature-footer { margin-top: 7px; }
 }
