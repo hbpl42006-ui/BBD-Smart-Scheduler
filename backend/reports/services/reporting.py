@@ -1,6 +1,9 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 
+from django.db.models import Count, Sum, Value
+from django.db.models.functions import Coalesce
+
 from academics.models import CourseOffering, Section
 from audit.models import AuditEvent
 from common.models import TimeSlot
@@ -113,6 +116,34 @@ def faculty_timetable(request):
 def room_timetable(request): return section_timetable(request)
 
 
+def scheduled_entry_analytics(request):
+    """Aggregate the same canonical scheduled-entry queryset used by the report."""
+    version = _version(request)
+    entries = _entries(request, version) if version else ScheduleEntry.objects.none()
+    weekday_counts = dict(entries.values('weekday').annotate(count=Count('pk')).values_list('weekday', 'count'))
+    time_slot_rows = entries.values('start_slot_id', 'start_slot__label', 'start_slot__order').annotate(count=Count('pk')).order_by('start_slot__order', 'start_slot_id')
+    time_slot_counts = {row['start_slot__label']: row['count'] for row in time_slot_rows}
+    return entries, weekday_counts, time_slot_counts
+
+
+def students_by_year(request):
+    """Return enrollment totals from the scoped Section rows, grouped by year."""
+    sections = Section.objects.all()
+    session_id = request.query_params.get('session') or request.query_params.get('academic_session')
+    if session_id:
+        sections = sections.filter(semester__session_id=session_id)
+    if request.query_params.get('semester'):
+        sections = sections.filter(semester_id=request.query_params['semester'])
+    if request.query_params.get('program'):
+        sections = sections.filter(program_id=request.query_params['program'])
+    if request.query_params.get('department'):
+        sections = sections.filter(program__department_id=request.query_params['department'])
+    return sections.values('year').annotate(
+        section_count=Count('pk'),
+        student_count=Coalesce(Sum('student_strength'), Value(0)),
+    ).order_by('year')
+
+
 def course_allocation(request):
     version=_version(request); grouped=defaultdict(lambda:{'scheduled':0,'sections':set(),'faculty':set(),'rooms':set()})
     for entry in _entries(request,version) if version else []:
@@ -140,14 +171,16 @@ def version_activity(request):
 
 
 def analytics(request):
-    workload=faculty_workload(request); rooms=room_utilization(request); entries=section_timetable(request); allocation=course_allocation(request)
+    workload=faculty_workload(request); rooms=room_utilization(request); entry_qs, weekday_counts, slot_counts=scheduled_entry_analytics(request); entries=[entry_row(e) for e in entry_qs]; allocation=course_allocation(request)
     weekday=defaultdict(int); slots=defaultdict(int); room_types=defaultdict(int); years=defaultdict(int); heatmap=defaultdict(int)
-    for row in entries:
-        weekday[row['day']]+=1; slots[row['time']]+=1; heatmap[f"{row['weekday']}:{row['time']}"]+=1
+    for weekday_value, count in weekday_counts.items(): weekday[ScheduleEntry.Weekday(weekday_value).label] = count
+    for slot_label, count in slot_counts.items(): slots[slot_label] = count
+    for row in entries: heatmap[f"{row['weekday']}:{row['time']}"]+=1
     for room in Room.objects.filter(active=True): room_types[room.get_room_type_display()]+=1
-    for section in Section.objects.all(): years[f'Year {section.year}']+=section.student_strength
+    for row in students_by_year(request):
+        years[f"Year {row['year']}"] = row['student_count']
     overall_utilization=round(sum(x['occupied_slots'] for x in rooms)*100/(sum(x['total_available_slots'] for x in rooms)),2) if rooms and sum(x['total_available_slots'] for x in rooms) else 0
-    return {'total_faculty':Faculty.objects.filter(user__isnull=False).count(),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':len(entries),'room_utilization_percentage':min(overall_utilization,100),'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots),'room_type_distribution':dict(room_types),'projector_distribution':{'Projector Available':Room.objects.filter(active=True,has_projector=True).count(),'No Projector':Room.objects.filter(active=True,has_projector=False).count()},'students_by_year':dict(years),'heatmap':dict(heatmap)}
+    return {'total_faculty':Faculty.objects.filter(user__isnull=False).count(),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':entry_qs.count(),'room_utilization_percentage':min(overall_utilization,100),'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots),'room_type_distribution':dict(room_types),'projector_distribution':{'Projector Available':Room.objects.filter(active=True,has_projector=True).count(),'No Projector':Room.objects.filter(active=True,has_projector=False).count()},'students_by_year':dict(years),'heatmap':dict(heatmap)}
 
 def free_rooms(request):
     version=_version(request); raw_weekday=request.query_params.get('weekday'); weekday=int(raw_weekday) if raw_weekday is not None else None; slot_id=request.query_params.get('time_slot') or request.query_params.get('start_slot'); required=int(request.query_params.get('capacity',0)); rooms=Room.objects.filter(active=True,capacity__gte=required)

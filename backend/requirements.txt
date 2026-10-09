@@ -1,4 +1,5 @@
 Django>=5.0
+gunicorn>=22.0,<24.0
 djangorestframework
 djangorestframework-simplejwt
 django-filter
