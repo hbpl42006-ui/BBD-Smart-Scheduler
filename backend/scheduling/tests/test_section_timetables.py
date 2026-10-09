@@ -114,6 +114,51 @@ def test_coordinator_update_and_pdf_endpoint_enforce_scope(section_scope_data):
     assert forbidden_pdf.status_code == 403
 
 
+@pytest.mark.parametrize('year,semester_type,expected', [
+    (1, 'ODD', 'I'), (2, 'ODD', 'III'), (3, 'ODD', 'V'), (4, 'ODD', 'VII'),
+    (1, 'EVEN', 'II'), (2, 'EVEN', 'IV'), (3, 'EVEN', 'VI'), (4, 'EVEN', 'VIII'),
+])
+def test_official_pdf_vertical_semester_uses_btech_year(section_scope_data, year, semester_type, expected):
+    from scheduling.section_timetables import _detail_data, _draw_official_pdf
+
+    payload = _detail_data(section_scope_data['section'])
+    payload['section']['year'] = year
+    payload['section']['name'] = 'CSE(AI)-4F' if year == 4 else f'CS-{year}A'
+    payload['section']['semester']['type'] = semester_type
+    payload['section']['semester']['name'] = 'Odd Semester' if semester_type == 'ODD' else 'Even Semester'
+    # This is the shared academic-period record, not a per-year ordinal.
+    payload['section']['semester']['number'] = 1
+
+    pdf = _draw_official_pdf(payload)
+
+    escaped_name = payload['section']['name'].replace('(', r'\(').replace(')', r'\)')
+    assert f'B.Tech CSE - {expected} Sem - Section: {escaped_name}'.encode() in pdf
+    if year == 4 and semester_type == 'ODD':
+        assert b'B.Tech CSE Fourth Year, Odd Semester' in pdf
+        assert b'B.Tech CSE - I Sem - Section: CSE\\(AI\\)-4F' not in pdf
+
+
+@pytest.mark.parametrize('year,semester_number,expected', [(1, 1, 'I'), (2, 3, 'III')])
+def test_mtech_pdf_uses_selected_sections_program_and_model_semester(section_scope_data, year, semester_number, expected):
+    from scheduling.section_timetables import _detail_data, _draw_official_pdf
+
+    data = section_scope_data
+    program = Program.objects.create(department=data['department'], name='M.Tech CSE (AI)', code='MTECH-CSEAI', duration_years=2)
+    semester = Semester.objects.create(
+        session=data['session'], name='Odd Semester', number=semester_number, type='ODD',
+        start_date='2026-07-01', end_date='2026-12-31',
+    )
+    section = Section.objects.create(program=program, semester=semester, year=year, name=f'MTCSAI-{year}')
+
+    pdf = _draw_official_pdf(_detail_data(section))
+
+    year_name = 'First' if year == 1 else 'Second'
+    assert f'M.Tech {year_name} Year, Odd Semester'.encode() in pdf
+    assert f'M.Tech CSE \\(AI\\) - {expected} Sem - Section: MTCSAI-{year}'.encode() in pdf
+    assert b'Academic Session: 2026-27' in pdf
+    assert b'B.Tech' not in pdf
+
+
 def test_manager_without_explicit_department_scope_fails_closed(section_scope_data):
     data = section_scope_data
     unassigned = User.objects.create_user('unassigned@test.local', 'pass', role=Role.HOD_OR_DEAN_APPROVER)

@@ -287,12 +287,9 @@ def _draw_official_pdf(payload):
     text(width / 2 - 67, 554, 'School of Engineering', 11, True)
     text(width / 2 - 139, 539, section['department']['name'], 10, True)
     year_names = {1: 'First', 2: 'Second', 3: 'Third', 4: 'Fourth'}
-    if section['program'].get('code', '').startswith('MTECH') or section['program']['name'].startswith('M.Tech'):
-        semester_number = section['semester'].get('number') or 1
-        roman = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII'}.get(semester_number, str(semester_number))
-        program_heading = f"{section['program']['name']} - {roman} Semester"
-    else:
-        program_heading = f"{section['program']['name']} {year_names.get(section['year'], section['year'])} Year, {section['semester']['name']}"
+    program = section['program']
+    degree_name = program['name'].split(' ', 1)[0] if program['name'].casefold().startswith('m.tech') else program['name']
+    program_heading = f"{degree_name} {year_names.get(section['year'], section['year'])} Year, {section['semester']['name']}"
     text(width / 2 - min(170, len(program_heading) * 2.5), 521, program_heading, 10, True)
     text(width / 2 - 65, 507, f"Academic Session: {section['session']['name']}", 9, True)
     if version:
@@ -347,11 +344,17 @@ def _draw_official_pdf(payload):
             code = _compact_metadata(entry, include_room=True)
             text(x + 3, y + row_h / 2 - 2.5, code[:int(max(5, slot_w * block / 4.5))], 6.2, True)
 
-    # Left-side vertically oriented merged label.
-    semester_number = section['semester'].get('number') or (section['year'] * 2 if section['semester'].get('type') == 'EVEN' else section['year'] * 2 - 1)
+    # The shared Odd/Even Semester record is used by every B.Tech year, so its
+    # number (typically 1) is not the student's year-specific semester ordinal.
+    is_btech = program.get('code', '').upper().startswith('BTECH') or program.get('name', '').casefold().startswith('b.tech')
+    if is_btech and section['semester'].get('type') in ('ODD', 'EVEN'):
+        semester_number = section['year'] * 2 - (1 if section['semester']['type'] == 'ODD' else 0)
+    else:
+        semester_number = section['semester'].get('number') or (section['year'] * 2 if section['semester'].get('type') == 'EVEN' else section['year'] * 2 - 1)
     roman_semester = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII'}.get(semester_number, str(semester_number))
-    vertical = f"{section['program']['name']} - {roman_semester} Sem - Section: {section['name']}"
-    text(left + 8, grid_bottom + 5, vertical[:65], 7, True, rotate=True)
+    vertical = f"{program['name']} - {roman_semester} Sem - Section: {section['name']}"
+    vertical_size = min(6.5, 165 / max(len(vertical) * 0.52, 1))
+    text(left + 8, grid_bottom + 5, vertical, vertical_size, True, rotate=True)
 
     coord_y = grid_bottom - 18
     rect(left, coord_y, right - left, 18, yellow)

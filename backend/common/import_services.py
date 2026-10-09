@@ -152,8 +152,8 @@ def section_import(rows, commit=True):
     result={'created':0,'skipped':0,'failed':0,'errors':[],'warnings':0}; seen=set()
     required={'program','semester','year','name'}
     if rows:
-        aliases={'program':'program','program_name':'program','program_code':'program','semester_name':'semester','academic_year':'year','study_year':'year','section':'name','section_name':'name','student_strength':'student_strength','strength':'student_strength','capacity':'student_strength','delivery_policy':'delivery_policy','delivery policy':'delivery_policy','delivery_mode':'delivery_policy','offline_day':'offline_weekday','offline day':'offline_weekday','offline_weekday':'offline_weekday','offline weekday':'offline_weekday'}
-        rows=[{aliases.get(str(k).strip().lower().replace('-','_'),'_unknown' if not str(k).strip() else str(k).strip().lower().replace(' ','_')):v for k,v in row.items()} for row in rows]
+        aliases={'program':'program','program_name':'program','program_code':'program','semester_name':'semester','academic_year':'year','study_year':'year','section':'name','section_name':'name','student_strength':'student_strength','total_students':'student_strength','strength':'student_strength','capacity':'student_strength','delivery_policy':'delivery_policy','delivery policy':'delivery_policy','delivery_mode':'delivery_policy','offline_day':'offline_weekday','offline day':'offline_weekday','offline_weekday':'offline_weekday','offline weekday':'offline_weekday'}
+        rows=[{aliases.get(str(k).strip().lower().replace('-','_').replace(' ','_'),'_unknown' if not str(k).strip() else str(k).strip().lower().replace('-','_').replace(' ','_')):v for k,v in row.items()} for row in rows]
         missing=required-set(rows[0])
         if missing: return {'created':0,'skipped':0,'failed':1,'errors':[{'row':1,'identifier':'','message':'Missing required columns: '+', '.join(sorted(missing))}],'warnings':0}
     for number,row in enumerate(rows,2):
@@ -178,10 +178,19 @@ def section_import(rows, commit=True):
             if delivery_policy=='HYBRID' and offline_weekday not in range(6): raise ValueError('Hybrid sections require an Offline Day from Monday through Saturday.')
             if delivery_policy!='HYBRID' and offline_value: raise ValueError('Offline Day can only be provided for HYBRID sections.')
             key=(program.pk,sem.pk,year,name.lower())
-            if key in seen or Section.objects.filter(program=program,semester=sem,year=year,name__iexact=name).exists(): result['skipped']+=1; continue
+            existing=Section.objects.filter(program=program,semester=sem,year=year).filter(name__iexact=name).first()
+            if existing is None:
+                normalized=''.join(ch for ch in name.casefold() if ch.isalnum())
+                existing=next((candidate for candidate in Section.objects.filter(program=program,semester=sem,year=year) if ''.join(ch for ch in candidate.name.casefold() if ch.isalnum()) == normalized), None)
+            if key in seen: result['skipped']+=1; continue
             seen.add(key)
-            if commit: Section.objects.create(program=program,semester=sem,year=year,name=name,student_strength=strength,delivery_policy=delivery_policy,offline_weekday=offline_weekday if delivery_policy=='HYBRID' else None)
-            result['created']+=1
+            if commit:
+                if existing:
+                    existing.name=name; existing.student_strength=strength; existing.delivery_policy=delivery_policy; existing.offline_weekday=offline_weekday if delivery_policy=='HYBRID' else None
+                    existing.save(update_fields=['name','student_strength','delivery_policy','offline_weekday','updated_at'])
+                else:
+                    Section.objects.create(program=program,semester=sem,year=year,name=name,student_strength=strength,delivery_policy=delivery_policy,offline_weekday=offline_weekday if delivery_policy=='HYBRID' else None)
+            result['created']+=int(existing is None); result['updated']=result.get('updated',0)+int(existing is not None)
         except Exception as exc: result['failed']+=1; result['errors'].append({'row':number,'identifier':row.get('name',''),'message':str(exc)})
     return result
 
