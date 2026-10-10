@@ -247,6 +247,57 @@
 }
 @media print {
   @page { size: A4 landscape; margin: 8mm; }
+  body:has(.room-timetable-print-root) * { visibility: hidden !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root,
+  body:has(.room-timetable-print-root) .room-timetable-print-root * { visibility: visible !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root { position: absolute; inset: 0; width: 100%; border: 0 !important; box-shadow: none !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root .hidden.print\:block { display: block !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root .hidden.overflow-x-auto { display: block !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root .md\:hidden { display: none !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root .overflow-x-auto { overflow: visible !important; }
+  body:has(.room-timetable-print-root) .room-timetable-print-root .min-w-\[900px\] { min-width: 0 !important; }
+  body:has(.room-timetable-print-root) .no-print { display: none !important; }
+}
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  body:has(.unscheduled-print-root) * { visibility: hidden !important; }
+  body:has(.unscheduled-print-root) .unscheduled-print-root,
+  body:has(.unscheduled-print-root) .unscheduled-print-root * { visibility: visible !important; }
+  body:has(.unscheduled-print-root) .unscheduled-print-root { position: absolute; inset: 0; width: 100%; max-width: none; padding: 0 !important; }
+  body:has(.unscheduled-print-root) .no-print { display: none !important; }
+  body:has(.unscheduled-print-root) table { border-collapse: collapse; font-size: 8pt; }
+  body:has(.unscheduled-print-root) th, body:has(.unscheduled-print-root) td { border: 1px solid #cbd5e1; padding: 3px 5px; }
+  body:has(.free-rooms-print-root) * { visibility: hidden !important; }
+  body:has(.free-rooms-print-root) .free-rooms-print-root,
+  body:has(.free-rooms-print-root) .free-rooms-print-root * { visibility: visible !important; }
+  body:has(.free-rooms-print-root) .free-rooms-print-root { position: absolute; inset: 0; width: 100%; max-width: none; padding: 0 !important; }
+  body:has(.free-rooms-print-root) table { border-collapse: collapse; font-size: 8pt; }
+  body:has(.free-rooms-print-root) th, body:has(.free-rooms-print-root) td { border: 1px solid #cbd5e1; padding: 3px 5px; }
+}
+
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body:has(.course-allocation-print-root) * { visibility: hidden !important; }
+  body:has(.course-allocation-print-root) .course-allocation-print-root,
+  body:has(.course-allocation-print-root) .course-allocation-print-root * { visibility: visible !important; }
+  body:has(.course-allocation-print-root) .course-allocation-print-root { position: absolute; inset: 0; width: 100%; max-width: none; padding: 0 !important; }
+  body:has(.course-allocation-print-root) .no-print { display: none !important; }
+  body:has(.course-allocation-print-root) .hidden.print\:block { display: block !important; }
+}
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  body:has(.report-section-print-root) * { visibility: hidden !important; }
+  body:has(.report-section-print-root) .report-section-print-root,
+  body:has(.report-section-print-root) .report-section-print-root * { visibility: visible !important; }
+  body:has(.report-section-print-root) .report-section-print-root { position: absolute; inset: 0; width: 100%; border: 0 !important; box-shadow: none !important; }
+  body:has(.report-section-print-root) .report-section-print-root .hidden.print\:block { display: block !important; }
+  body:has(.report-section-print-root) .report-section-print-root .hidden.overflow-x-auto { display: block !important; overflow: visible !important; }
+  body:has(.report-section-print-root) .report-section-print-root .md\:hidden { display: none !important; }
+  body:has(.report-section-print-root) .report-section-print-root .min-w-\[900px\] { min-width: 0 !important; }
+  body:has(.report-section-print-root) .no-print { display: none !important; }
+}
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
   .official-off-day-label { display: none !important; }
   body:has(.section-timetable-print-root) * { visibility: hidden !important; }
   body:has(.section-timetable-print-root) .section-timetable-print-root,
@@ -305,4 +356,23 @@
   .section-timetable-print-root .official-table .compact-entry { font-size: 8px; }
   .section-timetable-print-root .course-table th, .section-timetable-print-root .course-table td { padding: 2px 3px; font-size: 7.5px; }
   .section-timetable-print-root .signature-footer { margin-top: 7px; }
+}
+.faculty-entry-cell { margin: 3px; min-height: 98px; border-width: 1px; border-radius: 9px; padding: 8px; text-align: left; font-size: 11px; }
+.faculty-empty-cell { margin: 3px; display: flex; min-height: 70px; align-items: center; justify-content: center; border: 1px solid #e2e8f0; border-radius: 7px; padding: 5px; text-align: center; font-size: 11px; }
+.faculty-print-heading { margin-bottom: 10px; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; }
+.faculty-print-heading h1 { font-size: 18pt; font-weight: 700; }
+.faculty-print-heading p { margin-top: 3px; font-size: 9pt; }
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  body:has(.faculty-entry-cell) * { visibility: hidden !important; }
+  body:has(.faculty-entry-cell) .faculty-print-root,
+  body:has(.faculty-entry-cell) .faculty-print-root * { visibility: visible !important; }
+  body:has(.faculty-entry-cell) .faculty-print-root { position: absolute; inset: 0; width: 100%; max-width: none; padding: 0 !important; }
+  body:has(.faculty-entry-cell) .no-print { display: none !important; }
+  body:has(.faculty-entry-cell) .faculty-entry-cell { min-height: 64px; font-size: 7pt; }
+  body:has(.faculty-entry-cell) .faculty-empty-cell { min-height: 40px; font-size: 7pt; }
+  body:has(.faculty-entry-cell) .hidden.print\:block { display: block !important; }
+  body:has(.faculty-entry-cell) .hidden.overflow-x-auto { display: block !important; }
+  body:has(.faculty-entry-cell) .md\:hidden { display: none !important; }
+  body:has(.faculty-entry-cell) .min-w-\[900px\] { min-width: 0 !important; }
 }

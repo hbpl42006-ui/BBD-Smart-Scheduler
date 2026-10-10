@@ -2,7 +2,7 @@
 
 type Row = Record<string, unknown>;
 type Metric = { label: string; value: string | number };
-type Bar = { label: string; value: number; suffix?: string };
+type Bar = { label: string; value: number; suffix?: string; scale?: number };
 
 const numberValue = (value: unknown) => {
   const parsed = Number(value);
@@ -10,13 +10,13 @@ const numberValue = (value: unknown) => {
 };
 
 function Bars({ title, data }: { title: string; data: Bar[] }) {
-  const max = Math.max(...data.map(item => item.value), 1);
+  const max = data[0]?.scale ?? Math.max(...data.map(item => item.value), 1);
   return <div className="rounded-lg border bg-white p-4">
     <h3 className="mb-3 text-sm font-semibold capitalize text-slate-700">{title}</h3>
     <div className="max-h-[600px] space-y-2 overflow-y-auto pr-1">
       {data.map(item => <div key={item.label} className="grid grid-cols-[minmax(120px,1fr)_2fr_auto] items-center gap-2 text-xs">
         <span className="break-words text-slate-600" title={item.label}>{item.label}</span>
-        <div className="h-2 rounded bg-slate-100"><div className="h-2 rounded bg-indigo-500" style={{ width: `${Math.max((item.value / max) * 100, item.value ? 3 : 0)}%` }} /></div>
+        <div className="h-2 rounded bg-slate-100"><div className="h-2 rounded bg-indigo-500" style={{ width: `${Math.min(Math.max((item.value / max) * 100, 0), 100)}%` }} /></div>
         <span className="tabular-nums text-slate-700">{item.value}{item.suffix ?? ''}</span>
       </div>)}
       {!data.length && <p className="text-xs text-slate-400">No data for the selected filters.</p>}
@@ -50,11 +50,35 @@ function freeRooms(rows: Row[]) {
 
 function roomUtilization(rows: Row[]) {
   const used = rows.filter(row => numberValue(row.occupied_slots) > 0);
+  const occupied = rows.reduce((sum, row) => sum + numberValue(row.occupied_slots), 0);
+  const available = rows.reduce((sum, row) => sum + numberValue(row.total_available_slots), 0);
+  const weightedUtilization = available ? occupied * 100 / available : 0;
+  const groupedUtilization = (key: string): Bar[] => {
+    const totals = new Map<string, { occupied: number; available: number }>();
+    rows.forEach(row => {
+      const label = String(row[key] || 'Unknown');
+      const total = totals.get(label) ?? { occupied: 0, available: 0 };
+      total.occupied += numberValue(row.occupied_slots);
+      total.available += numberValue(row.total_available_slots);
+      totals.set(label, total);
+    });
+    return [...totals.entries()].map(([label, total]) => ({
+      label,
+      value: total.available ? Number((total.occupied * 100 / total.available).toFixed(2)) : 0,
+      suffix: '%',
+      scale: 100,
+    })).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  };
+  const highest = [...used].sort((a, b) => numberValue(b.utilization_percentage) - numberValue(a.utilization_percentage) || String(a.room_no ?? '').localeCompare(String(b.room_no ?? '')))[0];
   return { metrics: [
     { label: 'Total Rooms', value: rows.length }, { label: 'Rooms Used', value: used.length },
-    { label: 'Average Utilization', value: `${rows.length ? Math.round(rows.reduce((a, r) => a + numberValue(r.utilization_percentage), 0) / rows.length) : 0}%` },
-    { label: 'Highest Utilized Room', value: String(used.sort((a, b) => numberValue(b.utilization_percentage) - numberValue(a.utilization_percentage))[0]?.room_no ?? '—') },
-  ], charts: [['Room Utilization %', rows.map(row => ({ label: String(row.room_no ?? ''), value: numberValue(row.utilization_percentage), suffix: '%' }))], ['Building-wise utilization', grouped(rows, 'building', 'utilization_percentage')], ['Room Type Utilization', grouped(rows, 'room_type', 'utilization_percentage')]] as [string, Bar[]][] };
+    { label: 'Average Utilization', value: `${weightedUtilization.toFixed(2)}%` },
+    { label: 'Highest Utilized Room', value: String(highest?.room_no ?? '—') },
+  ], charts: [
+    ['Room Utilization %', rows.map(row => ({ label: String(row.room_no ?? ''), value: numberValue(row.utilization_percentage), suffix: '%', scale: 100 }))],
+    ['Building-wise utilization', groupedUtilization('building')],
+    ['Room Type Utilization', groupedUtilization('room_type')],
+  ] as [string, Bar[]][] };
 }
 
 function workload(rows: Row[]) {
