@@ -91,16 +91,16 @@ class ReportsOverviewFacultyCountTests(TestCase):
         self.current = TimetableVersion.objects.create(timetable=timetable, version_no=2, status='PUBLISHED', created_by=self.admin)
         self.old_published = TimetableVersion.objects.create(timetable=timetable, version_no=1, status='PUBLISHED', created_by=self.admin)
         self.draft = TimetableVersion.objects.create(timetable=timetable, version_no=3, status='DRAFT', created_by=self.admin)
-        faculty = [Faculty.objects.create(name=f'Published Faculty {i:02}', employee_code=f'OVF{i:02}', department=department) for i in range(20)]
+        self.faculty = [Faculty.objects.create(name=f'Published Faculty {i:02}', employee_code=f'OVF{i:02}', department=department) for i in range(20)]
         zero_workload = Faculty.objects.create(name='No Published Workload', employee_code='OVZERO', department=department)
 
-        for index, member in enumerate(faculty):
+        for index, member in enumerate(self.faculty):
             entry = ScheduleEntry.objects.create(version=self.current, section=section, course_offering=offering, weekday=index % 5, start_slot=slot, block_length=1)
             ScheduleEntryFaculty.objects.create(schedule_entry=entry, faculty=member)
             if index == 0:
                 repeated = ScheduleEntry.objects.create(version=self.current, section=section, course_offering=offering, weekday=0, start_slot=slot, block_length=1)
                 ScheduleEntryFaculty.objects.create(schedule_entry=repeated, faculty=member)
-                ScheduleEntryFaculty.objects.create(schedule_entry=repeated, faculty=faculty[1], role='CO_FACULTY')
+                ScheduleEntryFaculty.objects.create(schedule_entry=repeated, faculty=self.faculty[1], role='CO_FACULTY')
         for version in (self.old_published, self.draft):
             historical = ScheduleEntry.objects.create(version=version, section=section, course_offering=offering, weekday=0, start_slot=slot, block_length=1)
             ScheduleEntryFaculty.objects.create(schedule_entry=historical, faculty=zero_workload)
@@ -119,6 +119,14 @@ class ReportsOverviewFacultyCountTests(TestCase):
         self.assertEqual(workload_count, 20)
         self.assertEqual(overview.data['total_faculty'], workload_count)
         self.assertEqual(overview.data['scheduled_classes'], 21)
+
+        filtered_query = {'faculty': str(self.faculty[5].pk)}
+        filtered_overview = self.client.get('/api/reports/analytics/', filtered_query)
+        filtered_workload = self.client.get('/api/reports/faculty-workload/', filtered_query)
+        filtered_workload_count = sum(row['total_scheduled_periods'] > 0 for row in filtered_workload.data)
+        self.assertEqual(filtered_overview.data['total_faculty'], 1)
+        self.assertEqual(filtered_workload_count, 1)
+        self.assertEqual(filtered_overview.data['total_faculty'], filtered_workload_count)
 
     def test_count_honors_the_same_section_filter_as_scheduled_entries(self):
         request = SimpleNamespace(user=self.admin, query_params={'section': '00000000-0000-0000-0000-000000000001'})
