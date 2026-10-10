@@ -9,7 +9,7 @@ from audit.models import AuditEvent
 from common.models import TimeSlot
 from faculty.models import Faculty
 from rooms.models import Room, RoomAvailability
-from scheduling.models import ScheduleEntry, Timetable, TimetableVersion
+from scheduling.models import ScheduleEntry, ScheduleEntryFaculty, Timetable, TimetableVersion
 from faculty.models import FacultyArrangement
 from scheduling.services.validation import validate_entry
 
@@ -70,13 +70,17 @@ def faculty_workload(request):
                 row = grouped[assignment.faculty_id]; row['assigned_courses'].add(entry.course_offering.course.code); row['sections'].add(str(entry.section)); row['total_scheduled_periods'] += entry.block_length
                 if entry.entry_type == 'PRACTICAL': row['practical_periods'] += entry.block_length
                 else: row['lecture_periods'] += entry.block_length
-    faculty_qs = Faculty.objects.select_related('user', 'department').filter(pk__in=grouped.keys()) if grouped else Faculty.objects.none()
-    if request.query_params.get('faculty'): faculty_qs = Faculty.objects.filter(pk=request.query_params['faculty']).select_related('user', 'department')
-    return [{'faculty_id': str(f.pk), 'faculty_name': faculty_name(f), 'employee_code': f.employee_code, 'department': f.department.name,
+    # Keep the report scoped to active faculty in the same academic/filter scope,
+    # including faculty with no published entries so workload can be balanced.
+    faculty_qs = Faculty.objects.select_related('user', 'department').filter(active=True)
+    if request.query_params.get('faculty'): faculty_qs = faculty_qs.filter(pk=request.query_params['faculty'])
+    if request.query_params.get('department'): faculty_qs = faculty_qs.filter(department_id=request.query_params['department'])
+    rows = [{'faculty_id': str(f.pk), 'faculty_name': faculty_name(f), 'employee_code': f.employee_code, 'department': f.department.name,
              'assigned_courses': sorted(grouped[f.pk]['assigned_courses']), 'sections': sorted(grouped[f.pk]['sections']),
              'lecture_periods': grouped[f.pk]['lecture_periods'], 'practical_periods': grouped[f.pk]['practical_periods'],
              'total_scheduled_periods': grouped[f.pk]['total_scheduled_periods'], 'total_weekly_teaching_hours': grouped[f.pk]['total_scheduled_periods'],
              'distinct_courses': len(grouped[f.pk]['assigned_courses']), 'distinct_sections': len(grouped[f.pk]['sections'])} for f in faculty_qs]
+    return sorted(rows, key=lambda row: (-row['total_scheduled_periods'], row['faculty_name'].lower()))
 
 def _with_query(request, **values):
     from django.http import QueryDict
@@ -124,6 +128,13 @@ def scheduled_entry_analytics(request):
     time_slot_rows = entries.values('start_slot_id', 'start_slot__label', 'start_slot__order').annotate(count=Count('pk')).order_by('start_slot__order', 'start_slot_id')
     time_slot_counts = {row['start_slot__label']: row['count'] for row in time_slot_rows}
     return entries, weekday_counts, time_slot_counts
+
+
+def published_faculty_count(entries):
+    """Count distinct faculty assigned to the report's scoped scheduled entries."""
+    return ScheduleEntryFaculty.objects.filter(schedule_entry__in=entries).values(
+        'faculty_id'
+    ).distinct().count()
 
 
 def students_by_year(request):
@@ -180,7 +191,7 @@ def analytics(request):
     for row in students_by_year(request):
         years[f"Year {row['year']}"] = row['student_count']
     overall_utilization=round(sum(x['occupied_slots'] for x in rooms)*100/(sum(x['total_available_slots'] for x in rooms)),2) if rooms and sum(x['total_available_slots'] for x in rooms) else 0
-    return {'total_faculty':Faculty.objects.filter(user__isnull=False).count(),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':entry_qs.count(),'room_utilization_percentage':min(overall_utilization,100),'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots),'room_type_distribution':dict(room_types),'projector_distribution':{'Projector Available':Room.objects.filter(active=True,has_projector=True).count(),'No Projector':Room.objects.filter(active=True,has_projector=False).count()},'students_by_year':dict(years),'heatmap':dict(heatmap)}
+    return {'total_faculty':published_faculty_count(entry_qs),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':entry_qs.count(),'room_utilization_percentage':min(overall_utilization,100),'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots),'room_type_distribution':dict(room_types),'projector_distribution':{'Projector Available':Room.objects.filter(active=True,has_projector=True).count(),'No Projector':Room.objects.filter(active=True,has_projector=False).count()},'students_by_year':dict(years),'heatmap':dict(heatmap)}
 
 def free_rooms(request):
     version=_version(request); raw_weekday=request.query_params.get('weekday'); weekday=int(raw_weekday) if raw_weekday is not None else None; slot_id=request.query_params.get('time_slot') or request.query_params.get('start_slot'); required=int(request.query_params.get('capacity',0)); rooms=Room.objects.filter(active=True,capacity__gte=required)

@@ -10,6 +10,31 @@ from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParam
 from rest_framework import serializers
 from .services import reporting
 from .serializers import ReportRowSerializer
+from faculty.models import Faculty
+
+
+def _faculty_display_name(faculty):
+    linked = f'{faculty.user.first_name} {faculty.user.last_name}'.strip() if faculty.user_id else ''
+    return linked or faculty.name or faculty.initials or faculty.employee_code or ''
+
+
+class FacultyWorkloadOptionsView(APIView):
+    permission_classes=[IsAuthenticated]
+
+    @extend_schema(responses=inline_serializer(name='FacultyWorkloadOption', many=True, fields={
+        'id': serializers.UUIDField(), 'name': serializers.CharField(),
+    }))
+    def get(self, request):
+        rows = Faculty.objects.filter(active=True).select_related('user').only(
+            'id', 'name', 'initials', 'employee_code', 'user__first_name', 'user__last_name',
+        )
+        if request.query_params.get('department'):
+            rows = rows.filter(department_id=request.query_params['department'])
+        if request.user.role == 'FACULTY':
+            profile = getattr(request.user, 'faculty_profile', None)
+            rows = rows.filter(pk=profile.pk) if profile else rows.none()
+        options = [{'id': str(f.pk), 'name': _faculty_display_name(f)} for f in rows]
+        return Response(sorted(options, key=lambda item: (item['name'].casefold(), item['id'])))
 
 MANAGEMENT = {'SUPER_ADMIN','ACADEMIC_ADMIN','HOD_OR_DEAN_APPROVER','TIMETABLE_COORDINATOR'}
 
