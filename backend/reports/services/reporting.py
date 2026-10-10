@@ -18,6 +18,7 @@ from scheduling.services.validation import validate_entry
 
 
 DAYS = dict(ScheduleEntry.Weekday.choices)
+DAYS[6] = 'Sunday'
 
 
 def _version(request):
@@ -163,7 +164,130 @@ def room_utilization(request):
 
 
 def section_timetable(request):
+    from scheduling.services.temporary_schedules import parse_schedule_scope, resolve_effective_schedule
+    mode, day = parse_schedule_scope(request)
+    if mode != 'regular' or request.query_params.get('date'):
+        return resolve_effective_schedule(_version(request), day, mode=mode, section_id=request.query_params.get('section'))
     version=_version(request); return [entry_row(e) for e in _entries(request,version)] if version else []
+
+
+def _regular_request(request):
+    params = request.query_params.copy()
+    params.pop('schedule_mode', None)
+    params.pop('date', None)
+    params.pop('weekday', None)
+    return SimpleNamespace(user=request.user, query_params=params)
+
+
+def _daily_visual(request, kind, version, mode, day):
+    """Preserve regular visual metadata and replace date-sensitive entries/metrics."""
+    from scheduling.services.temporary_schedules import resolve_effective_schedule
+    from scheduling.models import TemporarySchedulePlan
+    builder = {'section': section_timetable_visual, 'faculty': faculty_timetable_visual,
+               'room': room_timetable_visual}[kind]
+    payload = builder(_regular_request(request))
+    if not version:
+        return payload
+    faculty_id = request.query_params.get('faculty')
+    if kind == 'faculty' and request.user.role == 'FACULTY':
+        faculty_id = getattr(getattr(request.user, 'faculty_profile', None), 'pk', None)
+    rows = resolve_effective_schedule(version, day, mode=mode,
+        section_id=request.query_params.get('section') if kind == 'section' else None,
+        faculty_id=faculty_id if kind == 'faculty' else None,
+        room_id=request.query_params.get('room') if kind == 'room' else None)
+    if kind == 'room':
+        rows = [row for row in rows if row['room_id']]
+    payload['entries'] = rows if kind != 'section' or request.query_params.get('section') else []
+    payload['schedule_mode'] = mode.upper()
+    payload['effective_date'] = day.isoformat()
+    payload['active_plans'] = [{'id': str(plan.pk), 'title': plan.title,
+        'start_date': plan.start_date.isoformat(), 'end_date': plan.end_date.isoformat()}
+        for plan in TemporarySchedulePlan.objects.filter(
+            pk__in={row['temporary_plan_id'] for row in rows if row['is_temporary']}
+        )
+        ] if kind == 'section' and request.query_params.get('section') else []
+    metrics = payload.get('summary') or {}
+    metrics.update({'scheduled_classes': len(rows), 'scheduled_periods': sum(row['block_length'] for row in rows),
+        'schedule_mode': mode.upper(), 'date': day.isoformat()})
+    if kind == 'faculty':
+        all_rows = resolve_effective_schedule(version, day, mode=mode)
+        for faculty_item in payload.get('faculties', []):
+            person_rows = [row for row in all_rows if any(f['id'] == faculty_item['faculty_id'] for f in row['faculty'])]
+            faculty_item['teaching_periods'] = sum(row['block_length'] for row in person_rows)
+            faculty_item['scheduled_classes'] = len(person_rows)
+            faculty_item['distinct_courses'] = len({row['course_offering_id'] for row in person_rows if row['course_offering_id']})
+            faculty_item['distinct_sections'] = len({row['section_id'] for row in person_rows})
+        if not faculty_id:
+            metrics['faculty_with_published_classes'] = sum(row['teaching_periods'] > 0 for row in payload.get('faculties', []))
+            metrics['total_teaching_periods'] = sum(row['teaching_periods'] for row in payload.get('faculties', []))
+            metrics['faculty_with_zero_published_load'] = sum(row['teaching_periods'] == 0 for row in payload.get('faculties', []))
+        metrics['teaching_periods'] = sum(row['block_length'] for row in rows)
+        metrics['distinct_sections'] = len({row['section_id'] for row in rows})
+        metrics['rooms_used'] = len({row['room_id'] for row in rows if row['room_id']})
+        metrics['teaching_days'] = int(bool(rows))
+        payload['day_load'] = [{'weekday': day.weekday(), 'day': DAYS.get(day.weekday(), str(day.weekday())),
+                                'periods': metrics['teaching_periods']}]
+        states = [item for item in payload.get('availability_states', []) if item['weekday'] == day.weekday()]
+        occupied = {slot_id for row in rows for slot_id in row['occupied_slot_ids']}
+        metrics['free_available_periods'] = sum(item['state'] == 'FREE' and item['slot_id'] not in occupied for item in states)
+        metrics['unavailable_periods'] = sum(item['state'] == 'UNAVAILABLE' for item in states)
+        metrics['break_periods'] = sum(slot['is_break'] for slot in payload.get('slots', []))
+        payload['availability']['free_periods'] = metrics['free_available_periods']
+        payload['availability']['unavailable_periods'] = metrics['unavailable_periods']
+        payload['availability']['break_periods'] = metrics['break_periods']
+    elif kind == 'section':
+        for section_item in payload.get('sections', []):
+            section_rows = [row for row in rows if row['section_id'] == section_item['section_id']]
+            section_item['scheduled_classes'] = len(section_rows)
+            section_item['scheduled_periods'] = sum(row['block_length'] for row in section_rows)
+            section_item['distinct_courses'] = len({row['course_offering_id'] for row in section_rows if row['course_offering_id']})
+            section_item['distinct_faculty'] = len({f['id'] for row in section_rows for f in row['faculty']})
+            section_item['free_periods'] = max(0, sum(not slot['is_break'] for slot in payload.get('slots', [])) - section_item['scheduled_periods'])
+        if rows and payload.get('calendar') and payload['calendar'].get('weekly_off_weekday') == day.weekday():
+            payload['calendar']['weekly_off_weekday'] = None
+        metrics['distinct_faculty'] = len({f['id'] for row in rows for f in row['faculty']})
+        metrics['rooms_used'] = len({row['room_id'] for row in rows if row['room_id']})
+        metrics['distinct_courses'] = len({row['course_offering_id'] for row in rows if row['course_offering_id']})
+        teaching_slots = sum(not slot['is_break'] for slot in payload.get('slots', []))
+        metrics['available_teaching_periods'] = teaching_slots
+        metrics['free_periods'] = max(0, teaching_slots - metrics['scheduled_periods'])
+        metrics['break_periods'] = sum(slot['is_break'] for slot in payload.get('slots', []))
+        metrics['weekly_off_periods'] = 0
+        metrics['online_periods'] = sum(row['block_length'] for row in rows if row['delivery_mode'] == 'ONLINE')
+        metrics['offline_periods'] = metrics['scheduled_periods'] - metrics['online_periods']
+        payload['faculty_load'] = [{'faculty_id': fid, 'faculty_name': name, 'periods': sum(row['block_length'] for row in rows
+            if any(f['id'] == fid for f in row['faculty']))} for fid, name in {f['id']: f['name'] for row in rows for f in row['faculty']}.items()]
+        payload['room_load'] = [{'room_id': rid, 'room': name, 'periods': sum(row['block_length'] for row in rows if row['room_id'] == rid)}
+            for rid, name in {row['room_id']: row['room'] for row in rows if row['room_id']}.items()]
+        payload['course_load'] = []
+        payload['day_load'] = [{'weekday': day.weekday(), 'day': DAYS.get(day.weekday(), str(day.weekday())),
+                                'periods': metrics['scheduled_periods']}]
+    else:
+        metrics['occupied_periods'] = sum(row['block_length'] for row in rows)
+        metrics['rooms_used'] = len({row['room_id'] for row in rows})
+        room_periods = defaultdict(set)
+        for row in rows:
+            room_periods[row['room_id']].update(row['occupied_slot_ids'])
+        date_rules = RoomAvailability.objects.filter(status__in=('BLOCKED','MAINTENANCE')).filter(
+            Q(date=day) | Q(date__isnull=True, weekday__isnull=True) | Q(date__isnull=True, weekday=day.weekday()))
+        payload['availability'] = [{'room_id': str(rule.room_id), 'weekday': day.weekday(),
+            'slot_id': str(rule.time_slot_id), 'status': rule.status, 'reason': rule.reason} for rule in date_rules]
+        for room in payload.get('rooms', []):
+            room['occupied_slots'] = len(room_periods.get(room['room_id'], set()))
+            room_uuid = room['room_id']
+            unavailable = RoomAvailability.objects.filter(room_id=room_uuid,
+                status__in=('BLOCKED', 'MAINTENANCE')).filter(
+                Q(date=day) | Q(date__isnull=True, weekday__isnull=True) | Q(date__isnull=True, weekday=day.weekday()))
+            blocked_slot_ids = set(unavailable.values_list('time_slot_id', flat=True))
+            total = sum(not slot['is_break'] and slot['id'] not in {str(pk) for pk in blocked_slot_ids} for slot in payload.get('slots', []))
+            room['total_available_slots'] = total
+            room['free_slots'] = max(total - room['occupied_slots'], 0)
+            room['utilization_percentage'] = round(room['occupied_slots'] * 100 / total, 2) if total else 0
+        metrics['total_rooms'] = len(payload.get('rooms', []))
+        metrics['available_periods'] = sum(room['total_available_slots'] for room in payload.get('rooms', []))
+        metrics['utilization_percentage'] = round(metrics['occupied_periods'] * 100 / metrics['available_periods'], 2) if metrics['available_periods'] else 0
+    payload['summary'] = metrics
+    return payload
 
 
 def _section_candidates(version):
@@ -214,6 +338,10 @@ def section_timetable_options(request):
 
 def section_timetable_visual(request):
     version = _version(request)
+    from scheduling.services.temporary_schedules import parse_schedule_scope
+    mode, day = parse_schedule_scope(request)
+    if mode != 'regular' or request.query_params.get('date'):
+        return _daily_visual(request, 'section', version, mode, day)
     if not version:
         return {'version': None, 'selected_section': None, 'summary': None, 'entries': [], 'sections': [],
                 'slots': [], 'course_load': [], 'faculty_load': [], 'room_load': [], 'day_load': [], 'weekly_off': None}
@@ -418,6 +546,13 @@ def section_timetable_visual(request):
 
 def faculty_timetable(request):
     """Return audit-friendly rows for the selected faculty from the canonical scope."""
+    from scheduling.services.temporary_schedules import parse_schedule_scope, resolve_effective_schedule
+    mode, day = parse_schedule_scope(request)
+    if mode != 'regular' or request.query_params.get('date'):
+        faculty_id = request.query_params.get('faculty')
+        if request.user.role == 'FACULTY':
+            faculty_id = getattr(getattr(request.user, 'faculty_profile', None), 'pk', None)
+        return resolve_effective_schedule(_version(request), day, mode=mode, faculty_id=faculty_id) if faculty_id else []
     faculty_id = request.query_params.get('faculty')
     if request.user.role == 'FACULTY':
         faculty_id = getattr(getattr(request.user, 'faculty_profile', None), 'pk', None)
@@ -438,6 +573,10 @@ def faculty_timetable(request):
 def faculty_timetable_visual(request):
     """Build all-faculty analytics or one faculty's detail from one filtered entry set."""
     version = _version(request)
+    from scheduling.services.temporary_schedules import parse_schedule_scope
+    mode, day = parse_schedule_scope(request)
+    if mode != 'regular' or request.query_params.get('date'):
+        return _daily_visual(request, 'faculty', version, mode, day)
     requested_faculty = request.query_params.get('faculty')
     if request.user.role == 'FACULTY':
         requested_faculty = getattr(getattr(request.user, 'faculty_profile', None), 'pk', None)
@@ -658,6 +797,11 @@ def faculty_timetable_visual(request):
 
 def room_timetable(request):
     """Room-only, human-readable row data used by the audit table and exports."""
+    from scheduling.services.temporary_schedules import parse_schedule_scope, resolve_effective_schedule
+    mode, day = parse_schedule_scope(request)
+    if mode != 'regular' or request.query_params.get('date'):
+        return [row for row in resolve_effective_schedule(_version(request), day, mode=mode,
+            room_id=request.query_params.get('room')) if row['room_id']]
     version = _version(request)
     entries = _entries(request, version).filter(room__isnull=False) if version else []
     return [entry_row(entry) for entry in entries]
@@ -666,11 +810,16 @@ def room_timetable(request):
 def room_timetable_visual(request):
     """One canonical filtered payload for the room timetable UI and its analytics."""
     version = _version(request)
+    from scheduling.services.temporary_schedules import parse_schedule_scope
+    mode, day = parse_schedule_scope(request)
+    if mode != 'regular' or request.query_params.get('date'):
+        return _daily_visual(request, 'room', version, mode, day)
     rooms = list(Room.objects.filter(active=True).order_by('code'))
     utilization = room_utilization(request)
     utilization_by_id = {row['room_id']: row for row in utilization}
     if not version:
         return {'version': None, 'rooms': [], 'slots': [], 'entries': [], 'availability': [], 'summary': None}
+
 
     # Resolve the calendar from the entire published version, not only from the
     # filtered room/session subset, so filters never alter configured slot axes.
@@ -1062,9 +1211,13 @@ def analytics(request):
     return {'total_faculty':published_faculty_count(entry_qs),'total_rooms':Room.objects.filter(active=True).count(),'total_sections':Section.objects.count(),'scheduled_classes':entry_qs.count(),'room_utilization_percentage':overall_utilization,'average_faculty_workload':round(sum(x['total_scheduled_periods'] for x in workload)/len(workload),2) if workload else 0,'under_scheduled_courses':sum(1 for x in allocation if x['difference']<0),'weekday_load':dict(weekday),'time_slot_load':dict(slots),'room_type_distribution':dict(room_types),'projector_distribution':{'Projector Available':Room.objects.filter(active=True,has_projector=True).count(),'No Projector':Room.objects.filter(active=True,has_projector=False).count()},'students_by_year':dict(years),'heatmap':dict(heatmap)}
 
 def free_rooms(request):
+    from scheduling.services.temporary_schedules import parse_schedule_scope, resolve_effective_schedule
+    mode, day = parse_schedule_scope(request)
     version = _version(request)
     raw_weekday = request.query_params.get('weekday')
     weekday = int(raw_weekday) if raw_weekday not in (None, '') else None
+    if mode != 'regular' or request.query_params.get('date'):
+        weekday = day.weekday()
     slot_id = request.query_params.get('time_slot') or request.query_params.get('start_slot')
     raw_capacity = request.query_params.get('capacity', '')
     required = int(raw_capacity) if raw_capacity not in (None, '') else 0
@@ -1096,14 +1249,21 @@ def free_rooms(request):
             requested_index = next((index for index, slot in enumerate(slots) if slot.pk == requested_slot.pk), None)
             if requested_index is not None:
                 slot_index = {slot.pk: index for index, slot in enumerate(slots)}
-                occupancy = ScheduleEntry.objects.filter(version=version, weekday=weekday, room__isnull=False).select_related('start_slot') if version and weekday is not None else ScheduleEntry.objects.none()
-                for entry in occupancy:
-                    start_index = slot_index.get(entry.start_slot_id)
-                    if start_index is not None and start_index <= requested_index < start_index + entry.block_length:
-                        occupied_ids.add(entry.room_id)
+                if mode == 'regular':
+                    occupancy = ScheduleEntry.objects.filter(version=version, weekday=weekday, room__isnull=False).select_related('start_slot') if version and weekday is not None else ScheduleEntry.objects.none()
+                    for entry in occupancy:
+                        start_index = slot_index.get(entry.start_slot_id)
+                        if start_index is not None and start_index <= requested_index < start_index + entry.block_length:
+                            occupied_ids.add(entry.room_id)
+                elif version:
+                    from uuid import UUID
+                    occupied_ids.update(UUID(row['room_id']) for row in resolve_effective_schedule(version, day, mode=mode)
+                                        if row['room_id'] and str(requested_slot.pk) in row['occupied_slot_ids'])
                 matching_rules = RoomAvailability.objects.filter(
                     time_slot=requested_slot, status__in=('BLOCKED', 'MAINTENANCE'),
-                ).filter(Q(weekday__isnull=True) | Q(weekday=weekday), room__active=True)
+                ).filter(Q(date=day) | Q(date__isnull=True, weekday__isnull=True) | Q(date__isnull=True, weekday=weekday), room__active=True) if mode != 'regular' or request.query_params.get('date') else RoomAvailability.objects.filter(
+                    time_slot=requested_slot, status__in=('BLOCKED', 'MAINTENANCE'), room__active=True
+                ).filter(Q(weekday__isnull=True) | Q(weekday=weekday))
                 blocked_ids = set(matching_rules.values_list('room_id', flat=True))
                 rooms = rooms.exclude(pk__in=occupied_ids | blocked_ids)
 
@@ -1115,7 +1275,8 @@ def free_rooms(request):
     blocked_only = blocked_active - occupied_active
     base_free_ids = active_ids - occupied_active - blocked_only
     return {'version': _version_label(request), 'requested_slot': requested_slot.label if slot_id and requested_slot else None,
-            'weekday': weekday, 'summary': {'free_rooms': len(room_rows),
+            'weekday': weekday, 'schedule_mode': mode.upper(), 'effective_date': day.isoformat() if mode != 'regular' or request.query_params.get('date') else None,
+            'summary': {'free_rooms': len(room_rows),
                 'projector_available': sum(room.has_projector for room in room_rows),
                 'average_capacity': round(sum(room.capacity for room in room_rows) / len(room_rows), 2) if room_rows else 0,
                 'largest_capacity': max((room.capacity for room in room_rows), default=0)},

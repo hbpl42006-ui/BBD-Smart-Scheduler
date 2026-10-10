@@ -30,6 +30,44 @@ class ScheduleEntryFaculty(models.Model):
     id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False); schedule_entry=models.ForeignKey(ScheduleEntry,on_delete=models.CASCADE,related_name='faculty_assignments'); faculty=models.ForeignKey(Faculty,on_delete=models.PROTECT,related_name='schedule_assignments'); role=models.CharField(max_length=20,choices=Role.choices,default=Role.PRIMARY)
     class Meta: constraints=[models.UniqueConstraint(fields=['schedule_entry','faculty'],name='unique_entry_faculty')]
 
+
+class TemporarySchedulePlan(models.Model):
+    """A date-bounded overlay on an immutable published timetable version."""
+    class EventType(models.TextChoices):
+        TRAINING='TRAINING','Training'; WORKSHOP='WORKSHOP','Workshop'; PLACEMENT='PLACEMENT','Placement'
+        SEMINAR='SEMINAR','Seminar'; GUEST_LECTURE='GUEST_LECTURE','Guest lecture'
+        EXAM_PREPARATION='EXAM_PREPARATION','Exam preparation'; SPECIAL_CLASS='SPECIAL_CLASS','Special class'; OTHER='OTHER','Other'
+    class Status(models.TextChoices): DRAFT='DRAFT','Draft'; PUBLISHED='PUBLISHED','Published'; CANCELLED='CANCELLED','Cancelled'
+    id=models.UUIDField(primary_key=True,default=uuid.uuid4,editable=False)
+    base_timetable_version=models.ForeignKey(TimetableVersion,on_delete=models.PROTECT,related_name='temporary_plans')
+    title=models.CharField(max_length=200); event_type=models.CharField(max_length=24,choices=EventType.choices,default=EventType.OTHER)
+    start_date=models.DateField(); end_date=models.DateField(); status=models.CharField(max_length=12,choices=Status.choices,default=Status.DRAFT)
+    priority=models.PositiveSmallIntegerField(default=0); notes=models.TextField(blank=True)
+    sections=models.ManyToManyField(Section,through='TemporarySchedulePlanSection',related_name='temporary_schedule_plans')
+    created_by=models.ForeignKey(User,on_delete=models.PROTECT,related_name='temporary_schedule_plans')
+    created_at=models.DateTimeField(auto_now_add=True); updated_at=models.DateTimeField(auto_now=True); published_at=models.DateTimeField(null=True,blank=True)
+    published_impact=models.JSONField(default=dict,blank=True)
+    class Meta: ordering=['-created_at']
+
+
+class TemporarySchedulePlanSection(models.Model):
+    plan=models.ForeignKey(TemporarySchedulePlan,on_delete=models.CASCADE,related_name='section_links')
+    section=models.ForeignKey(Section,on_delete=models.CASCADE,related_name='temporary_plan_links')
+    class Meta: constraints=[models.UniqueConstraint(fields=['plan','section'],name='unique_temp_plan_section')]
+
+
+class TemporaryScheduleBlock(models.Model):
+    plan=models.ForeignKey(TemporarySchedulePlan,on_delete=models.CASCADE,related_name='blocks')
+    section=models.ForeignKey(Section,on_delete=models.CASCADE,related_name='temporary_schedule_blocks')
+    specific_date=models.DateField(null=True,blank=True); weekday=models.PositiveSmallIntegerField(null=True,blank=True,choices=ScheduleEntry.Weekday.choices)
+    start_slot=models.ForeignKey(TimeSlot,on_delete=models.PROTECT,related_name='temporary_schedule_blocks'); block_length=models.PositiveSmallIntegerField(default=1)
+    event_type=models.CharField(max_length=24,choices=TemporarySchedulePlan.EventType.choices,default=TemporarySchedulePlan.EventType.OTHER)
+    title=models.CharField(max_length=200); room=models.ForeignKey(Room,null=True,blank=True,on_delete=models.PROTECT,related_name='temporary_schedule_blocks')
+    faculty=models.ManyToManyField(Faculty,blank=True,related_name='temporary_schedule_blocks'); trainer_name=models.CharField(max_length=200,blank=True)
+    delivery_mode=models.CharField(max_length=10,choices=ScheduleEntry.DeliveryMode.choices,default=ScheduleEntry.DeliveryMode.OFFLINE)
+    override_regular_class=models.BooleanField(default=False); notes=models.TextField(blank=True)
+    class Meta: ordering=['start_slot__order','title']
+
 class GenerationRun(models.Model):
     class Status(models.TextChoices): PENDING='PENDING'; RUNNING='RUNNING'; SUCCEEDED='SUCCEEDED'; INFEASIBLE='INFEASIBLE'; FAILED='FAILED'; APPLIED='APPLIED'
     class SolverStatus(models.TextChoices): OPTIMAL='OPTIMAL'; FEASIBLE='FEASIBLE'; INFEASIBLE='INFEASIBLE'; MODEL_INVALID='MODEL_INVALID'; UNKNOWN='UNKNOWN'; PRECHECK_FAILED='PRECHECK_FAILED'; POST_VALIDATION_FAILED='POST_VALIDATION_FAILED'

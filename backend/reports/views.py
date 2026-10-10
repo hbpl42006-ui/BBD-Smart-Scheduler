@@ -16,6 +16,19 @@ from common.models import TimeSlot
 from uuid import UUID
 
 
+def _validate_schedule_scope(request):
+    from scheduling.services.temporary_schedules import parse_schedule_scope
+    try:
+        mode, _ = parse_schedule_scope(request)
+    except ValueError as error:
+        return Response({'detail': str(error)}, status=400)
+    if mode in ('effective', 'special') and (request.query_params.get('version') or request.query_params.get('version_id')):
+        version = reporting._version(request)
+        if version and version.status != 'PUBLISHED':
+            return Response({'detail': 'Effective and special schedules require a published timetable version.'}, status=400)
+    return None
+
+
 def _faculty_display_name(faculty):
     linked = f'{faculty.user.first_name} {faculty.user.last_name}'.strip() if faculty.user_id else ''
     return linked or faculty.name or faculty.initials or faculty.employee_code or ''
@@ -59,6 +72,9 @@ class ReportView(APIView):
     report_name='report'; builder=None
     @extend_schema(description='Data-derived report. Use export=csv or export=xlsx for file output.', parameters=[OpenApiParameter('export',OpenApiTypes.STR,OpenApiParameter.QUERY,enum=['csv','xlsx']),OpenApiParameter('version',OpenApiTypes.UUID,OpenApiParameter.QUERY),OpenApiParameter('section',OpenApiTypes.UUID,OpenApiParameter.QUERY),OpenApiParameter('faculty',OpenApiTypes.UUID,OpenApiParameter.QUERY),OpenApiParameter('room',OpenApiTypes.UUID,OpenApiParameter.QUERY),OpenApiParameter('semester',OpenApiTypes.UUID,OpenApiParameter.QUERY)], responses=ReportRowSerializer(many=True))
     def get(self,request):
+        if self.report_name in ('section-timetable','faculty-timetable','room-timetable','free-rooms'):
+            invalid = _validate_schedule_scope(request)
+            if invalid: return invalid
         if request.user.role == 'FACULTY' and self.report_name not in ('faculty-timetable','faculty-workload'): return Response({'detail':'You do not have permission to access this report.'},403)
         if request.user.role == 'FACULTY' and self.report_name=='faculty-workload' and request.query_params.get('faculty') and str(request.query_params['faculty']) != str(getattr(getattr(request.user,'faculty_profile',None),'pk',None)): return Response({'detail':'You may only view your own workload.'},403)
         rows=self.builder(request); fmt=(request.query_params.get('export') or request.query_params.get('format','')).lower(); exported=export_response(self.report_name,rows,fmt) if isinstance(rows,list) and fmt in ('csv','xlsx') else None
@@ -71,6 +87,8 @@ class SectionTimetableReportView(ReportView):
     builder = staticmethod(reporting.section_timetable)
 
     def get(self, request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         if request.user.role == 'FACULTY':
             return Response({'detail': 'You do not have permission to access this report.'}, status=403)
         invalid = _validate_section_timetable_filters(request)
@@ -92,6 +110,8 @@ class SectionTimetableVisualView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         if request.user.role == 'FACULTY':
             return Response({'detail': 'You do not have permission to access this report.'}, status=403)
         invalid = _validate_section_timetable_filters(request)
@@ -116,6 +136,8 @@ class FacultyTimetableReportView(ReportView):
     builder = staticmethod(reporting.faculty_timetable)
 
     def get(self, request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         invalid = _validate_faculty_timetable_filters(request)
         if invalid:
             return invalid
@@ -142,6 +164,8 @@ class FacultyTimetableVisualView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         invalid = _validate_faculty_timetable_filters(request)
         if invalid:
             return invalid
@@ -270,6 +294,8 @@ class RoomTimetableView(ReportView):
     builder = staticmethod(reporting.room_timetable)
 
     def get(self, request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         if request.user.role == 'FACULTY':
             return Response({'detail': 'You do not have permission to access this report.'}, status=403)
         invalid = _validate_room_timetable_filters(request)
@@ -291,6 +317,8 @@ class RoomTimetableVisualView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         if request.user.role == 'FACULTY':
             return Response({'detail': 'You do not have permission to access this report.'}, status=403)
         invalid = _validate_room_timetable_filters(request)
@@ -391,6 +419,8 @@ class AnalyticsView(ReportView):
 class FreeRoomsView(ReportView):
     report_name='free-rooms'; builder=staticmethod(reporting.free_rooms)
     def get(self,request):
+        invalid = _validate_schedule_scope(request)
+        if invalid: return invalid
         raw=request.query_params.get('weekday')
         if raw is not None:
             try: weekday=int(raw)

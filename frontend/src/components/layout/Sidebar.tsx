@@ -43,6 +43,7 @@ const navItems = [
   ] },
   { title: 'Faculty Availability', url: '/faculty-arrangements/availability', icon: Clock, group: 'Scheduling' },
   { title: 'Timetables', url: '/timetables', icon: Table, group: 'Scheduling' },
+  { title: 'Temporary Schedules', url: '/temporary-schedules', icon: CalendarDays, group: 'Scheduling' },
   { title: 'Section Timetables', url: '/section-timetables', icon: CalendarDays, group: 'Scheduling' },
   { title: 'Room Allocation', url: '/room-allocation', icon: Building, group: 'Scheduling' },
   { title: 'Faculty Arrangements', url: '/faculty-arrangements', icon: CalendarDays, group: 'Operations', items: [
@@ -60,7 +61,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [role, setRole] = React.useState<Role>();
   React.useEffect(() => { me().then(user => setRole(user.role as Role)).catch(() => setRole(undefined)); }, []);
-  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' && item.url !== '/my-workload' || role === 'FACULTY') && (item.url !== '/faculty-workload' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/section-timetables' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
+  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' && item.url !== '/my-workload' || role === 'FACULTY') && (item.url !== '/faculty-workload' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/section-timetables' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/temporary-schedules' || ['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR'].includes(role ?? '')) && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
 
   return (
     <Sidebar className="no-print">
