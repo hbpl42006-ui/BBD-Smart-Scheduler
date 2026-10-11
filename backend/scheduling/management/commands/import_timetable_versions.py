@@ -54,6 +54,20 @@ class Command(BaseCommand):
                 actor_id=actor_id,
             )
         except Exception as exc:
+            if options.get('report'):
+                failure_report = {
+                    'mode': 'APPLY' if options.get('apply') else 'DRY_RUN',
+                    'ready': False,
+                    'completed': False,
+                    'error': str(exc),
+                }
+                try:
+                    Path(options['report']).expanduser().write_text(
+                        migration_json_dumps(failure_report, indent=2, sort_keys=True),
+                        encoding='utf-8',
+                    )
+                except OSError as report_error:
+                    exc.add_note(f'Could not write failure report: {report_error}')
             raise CommandError(str(exc)) from exc
         self.stdout.write(migration_json_dumps(report, indent=2, sort_keys=True))
         if options['report']:

@@ -22,6 +22,21 @@ PACKAGE_FORMAT = 'bbd-timetable-version-migration'
 PACKAGE_VERSION = 1
 
 
+class DependencyIdentityMismatch(ValueError):
+    def __init__(self, model_label, source_id, target_id, source_identity, target_identity, differences):
+        self.model_label = model_label
+        self.source_id = source_id
+        self.target_id = target_id
+        self.source_identity = source_identity
+        self.target_identity = target_identity
+        self.differences = differences
+        details = migration_json_dumps(differences, sort_keys=True)
+        super().__init__(
+            f'Identity mismatch for {model_label}: source {source_id} mapped to target {target_id}. '
+            f'Field differences: {details}'
+        )
+
+
 def _validation_summary(version, expected_rows):
     from scheduling.management.commands.verify_timetable_import import verify
     from scheduling.services.validation import validate_version
@@ -148,6 +163,34 @@ def _semantic_identity(value):
     return value
 
 
+def _normalized_identity(value):
+    """Normalize values identically on package and database sides before compare."""
+    return canonical_json_value(_semantic_identity(value))
+
+
+def _identity_field_differences(source, target, path=''):
+    """Return leaf-level differences with exact source and target values."""
+    differences = []
+    if isinstance(source, dict) and isinstance(target, dict):
+        for key in sorted(set(source) | set(target)):
+            child = f'{path}.{key}' if path else key
+            if key not in source:
+                differences.append({'field': child, 'source': '<missing>', 'destination': target[key]})
+            elif key not in target:
+                differences.append({'field': child, 'source': source[key], 'destination': '<missing>'})
+            else:
+                differences.extend(_identity_field_differences(source[key], target[key], child))
+    elif isinstance(source, list) and isinstance(target, list):
+        if len(source) != len(target):
+            differences.append({'field': path, 'source': source, 'destination': target})
+        else:
+            for index, (source_item, target_item) in enumerate(zip(source, target)):
+                differences.extend(_identity_field_differences(source_item, target_item, f'{path}[{index}]'))
+    elif source != target:
+        differences.append({'field': path, 'source': source, 'destination': target})
+    return differences
+
+
 def _entry_semantics(entry):
     assignments = []
     for assignment in entry.faculty_assignments.select_related('faculty', 'faculty__department').order_by('faculty_id'):
@@ -210,6 +253,9 @@ def _reference_manifest(version):
 
 
 def export_package(version_ids, include_lineage=True, using='default'):
+    # Snapshot caching is scoped to one package operation; avoid stale identity
+    # data when export/import are invoked sequentially in one Django process.
+    _model_snapshot_cached.cache_clear()
     versions = list(TimetableVersion.objects.using(using).filter(pk__in=version_ids).select_related(
         'timetable__institution', 'timetable__academic_session', 'timetable__semester',
         'timetable__department', 'timetable__created_by', 'previous_version', 'created_by',
@@ -311,8 +357,12 @@ def _resolve_mapping(model_label, source_id, refs, explicit):
     except (klass.DoesNotExist, ValueError, TypeError):
         raise ValueError(f'Missing target reference for {model_label}: source {source_id}, target {target_id}.')
     target_identity = _model_snapshot(target)
-    if _semantic_identity(target_identity) != _semantic_identity(source_ref['identity']):
-        raise ValueError(f'Identity mismatch for {model_label}: source {source_id} mapped to target {target_id}.')
+    source_normalized = _normalized_identity(source_ref['identity'])
+    target_normalized = _normalized_identity(target_identity)
+    differences = _identity_field_differences(source_normalized, target_normalized)
+    if differences:
+        raise DependencyIdentityMismatch(
+            model_label, source_id, target_id, source_normalized, target_normalized, differences)
     return str(target.pk), target
 
 
@@ -339,6 +389,7 @@ def import_package(payload, *, apply=False, explicit_mapping=None,
                    approve_non_equivalent_lineage=False, approval_note='',
                    actor_id=None, using='default'):
     """Validate by default; apply all requested draft rows in one transaction."""
+    _model_snapshot_cached.cache_clear()
     _verify_package(payload)
     explicit_mapping = explicit_mapping or {}
     versions_payload = payload['versions']
@@ -391,18 +442,69 @@ def import_package(payload, *, apply=False, explicit_mapping=None,
 
         refs = row['references']
         timetable_source = row['timetable_id']
-        mapped_timetable, timetable = _resolve_mapping('scheduling.Timetable', timetable_source, refs, explicit_mapping)
-        mapped_creator, creator = _resolve_mapping('accounts.User', row['created_by_id'], refs, explicit_mapping)
         resolved_targets = {}
+        dependency_errors = []
         for label, values in refs.items():
             for source_id in values:
-                if label == 'scheduling.Timetable':
+                try:
+                    target_id, _ = _resolve_mapping(label, source_id, refs, explicit_mapping)
+                except DependencyIdentityMismatch as exc:
+                    dependency_errors.append({
+                        'model': label, 'object_uuid': source_id,
+                        'destination_uuid': exc.target_id,
+                        'source_value': exc.source_identity,
+                        'destination_value': exc.target_identity,
+                        'mismatched_identity_fields': exc.differences,
+                        'error': str(exc),
+                    })
                     continue
-                target_id, _ = _resolve_mapping(label, source_id, refs, explicit_mapping)
+                except ValueError as exc:
+                    dependency_errors.append({
+                        'model': label, 'object_uuid': source_id,
+                        'source_value': refs[label][source_id].get('identity'),
+                        'error': str(exc),
+                    })
+                    continue
                 prior_source = resolved_targets.setdefault(label, {}).get(target_id)
                 if prior_source is not None and prior_source != source_id:
-                    raise ValueError(f'Ambiguous {label} mapping: source IDs {prior_source} and {source_id} both map to {target_id}.')
+                    dependency_errors.append({
+                        'model': label, 'object_uuid': source_id,
+                        'source_value': refs[label][source_id].get('identity'),
+                        'error': f'Ambiguous mapping: source IDs {prior_source} and {source_id} both map to {target_id}.',
+                    })
                 resolved_targets[label][target_id] = source_id
+        for label, source_id in (
+            ('scheduling.Timetable', timetable_source),
+            ('accounts.User', row['created_by_id']),
+        ):
+            if source_id in refs.get(label, {}):
+                continue
+            try:
+                _resolve_mapping(label, source_id, refs, explicit_mapping)
+            except DependencyIdentityMismatch as exc:
+                dependency_errors.append({
+                    'model': label, 'object_uuid': source_id,
+                    'destination_uuid': exc.target_id,
+                    'source_value': exc.source_identity,
+                    'destination_value': exc.target_identity,
+                    'mismatched_identity_fields': exc.differences,
+                    'error': str(exc),
+                })
+            except ValueError as exc:
+                dependency_errors.append({
+                    'model': label, 'object_uuid': source_id,
+                    'source_value': refs.get(label, {}).get(source_id, {}).get('identity'),
+                    'error': str(exc),
+                })
+        if dependency_errors:
+            raise ValueError(
+                'Dependency identity validation failed; no writes were made. Full mismatch report: '
+                + migration_json_dumps(dependency_errors, indent=2, sort_keys=True)
+            )
+        mapped_timetable, timetable = _resolve_mapping(
+            'scheduling.Timetable', timetable_source, refs, explicit_mapping)
+        mapped_creator, creator = _resolve_mapping(
+            'accounts.User', row['created_by_id'], refs, explicit_mapping)
         for entry in row['entries']:
             faculty_ids = [assignment['faculty_id'] for assignment in entry['assignments']]
             if len(faculty_ids) != len(set(faculty_ids)):
