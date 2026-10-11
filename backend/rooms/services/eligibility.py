@@ -107,7 +107,9 @@ def room_eligibility_error(
 
     mtech_code = required_mtech_room_code(section) if section else None
     activity = activity_type or getattr(offering, 'default_class_type', None)
-    fixed_code = required_course_room_code(course) if activity in (None, 'PRACTICAL') else None
+    # The RBS5151/105 reservation is course-scoped, even when a source
+    # timetable labels one of its periods as a lecture.
+    fixed_code = required_course_room_code(course)
     if mtech_code and room.code != mtech_code:
         return {'code': 'MTECH_RESERVED_ROOM_REQUIRED', 'message': f'{section.program.name} Year {section.year} must use Room {mtech_code}.', 'required_room_code': mtech_code}
     if fixed_code and room.code != fixed_code:

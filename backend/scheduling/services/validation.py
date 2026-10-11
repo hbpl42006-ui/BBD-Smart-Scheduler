@@ -102,11 +102,13 @@ def validate_version(version):
             invalid_hybrid_sections.add(entry.section_id)
             day_name=WEEKDAY_NAMES[offline_weekday] if isinstance(offline_weekday,int) and 0<=offline_weekday<len(WEEKDAY_NAMES) else str(offline_weekday)
             conflicts.append({'type':'INVALID_HYBRID_OFFLINE_DAY','code':'INVALID_HYBRID_OFFLINE_DAY','severity':'ERROR','section_id':str(entry.section_id),'offline_weekday':offline_weekday,'day':day_name,'message':'Hybrid offline day must be a working day (Monday-Friday).'})
-        if section_policy=='HYBRID' and entry.delivery_mode=='OFFLINE' and entry.weekday!=offline_weekday:
+        from academics.delivery import is_year4_room_based_import
+        room_based_import=is_year4_room_based_import(entry)
+        if not room_based_import and section_policy=='HYBRID' and entry.delivery_mode=='OFFLINE' and entry.weekday!=offline_weekday:
             day_name=WEEKDAY_NAMES[offline_weekday] if isinstance(offline_weekday,int) and 0<=offline_weekday<len(WEEKDAY_NAMES) else str(offline_weekday)
             conflicts.append({'type':'OFFLINE_DAY_MISMATCH','code':'OFFLINE_DAY_MISMATCH','severity':'ERROR','section_id':str(entry.section_id),'weekday':entry.weekday,'offline_weekday':offline_weekday,'message':f'{entry.section.name} physical classes are configured for {day_name}.'})
         from academics.delivery import expected_delivery_mode
-        expected_delivery=expected_delivery_mode(entry.section,entry.weekday,version.timetable.semester)
+        expected_delivery=entry.delivery_mode if room_based_import else expected_delivery_mode(entry.section,entry.weekday,version.timetable.semester)
         if entry.delivery_mode!=expected_delivery: conflicts.append({'type':'DELIVERY_MODE_MISMATCH','severity':'ERROR','message':'Entry delivery mode does not match the section delivery policy and weekday.','entry_id':str(entry.pk),'expected_delivery_mode':expected_delivery,'actual_delivery_mode':entry.delivery_mode})
         room_presence_error = _delivery_room_error(entry.delivery_mode, expected_delivery, entry.room_id)
         if room_presence_error:
@@ -118,7 +120,8 @@ def validate_version(version):
     windows={}
     for entry in entries:
         from academics.delivery import expected_delivery_mode
-        expected_delivery = expected_delivery_mode(entry.section, entry.weekday, version.timetable.semester)
+        from academics.delivery import is_year4_room_based_import
+        expected_delivery = entry.delivery_mode if is_year4_room_based_import(entry) else expected_delivery_mode(entry.section, entry.weekday, version.timetable.semester)
         ordered=slots_by_template[entry.start_slot.template_id]; position=next((i for i,x in enumerate(ordered) if x.pk==entry.start_slot_id),-1)
         window=ordered[position:position+entry.block_length] if position>=0 else []
         windows[entry.pk]=window
@@ -161,6 +164,33 @@ def validate_version(version):
         for entry in grouped:
             for other in grouped:
                 if other.pk!=entry.pk: conflicts.append({'type':'FACULTY_CLASH','severity':'ERROR','message':'Faculty is already assigned in this period.','faculty_id':faculty_id,'conflicting_entry_id':str(other.pk),'weekday':weekday,'slots':[slot_id]})
+    from faculty.workload import workload_limits_by_faculty
+    workload_limits=workload_limits_by_faculty({key[0] for key in faculty_index})
+    slots_by_template={}
+    for entry in entries:
+        slots_by_template.setdefault(entry.start_slot.template_id, list(TimeSlot.objects.filter(template_id=entry.start_slot.template_id).order_by('order')))
+    faculty_by_id={str(a.faculty_id):a.faculty for entry in entries for a in entry.faculty_assignments.all()}
+    for faculty_id in {key[0] for key in faculty_index}:
+        daily_limit,consecutive_limit=workload_limits.get(faculty_id,(4,2))
+        for weekday in WORKING_DAYS:
+            occupied={slot for fid,day,slot in faculty_index if fid==faculty_id and day==weekday}
+            daily_periods=sum(len(grouped) for (fid,day,_slot),grouped in faculty_index.items() if fid==faculty_id and day==weekday)
+            if daily_periods>daily_limit:
+                person=faculty_by_id.get(faculty_id);name=(person.name or person.initials or person.employee_code) if person else faculty_id
+                conflicts.append({'type':'FACULTY_DAILY_LIMIT_EXCEEDED','code':'FACULTY_DAILY_LIMIT_EXCEEDED','severity':'ERROR','faculty_id':faculty_id,'faculty':name,'weekday':weekday,'day':WEEKDAY_NAMES[weekday],'periods':daily_periods,'limit':daily_limit,'message':f'{name} is assigned {daily_periods} teaching periods on {WEEKDAY_NAMES[weekday]}; the limit is {daily_limit}.'})
+            for template_slots in slots_by_template.values():
+                run=[]
+                for slot in template_slots:
+                    if slot.is_break:
+                        run=[]
+                        continue
+                    if str(slot.pk) in occupied:
+                        run.append(slot)
+                        if len(run)>consecutive_limit:
+                            person=faculty_by_id.get(faculty_id);name=(person.name or person.initials or person.employee_code) if person else faculty_id
+                            conflicts.append({'type':'FACULTY_CONSECUTIVE_LIMIT_EXCEEDED','code':'FACULTY_CONSECUTIVE_LIMIT_EXCEEDED','severity':'ERROR','faculty_id':faculty_id,'faculty':name,'weekday':weekday,'day':WEEKDAY_NAMES[weekday],'periods':len(run),'limit':consecutive_limit,'time_slot':slot.label,'message':f'{name} exceeds the {consecutive_limit}-period consecutive teaching limit on {WEEKDAY_NAMES[weekday]}.'})
+                    else:
+                        run=[]
     scheduled=defaultdict(int)
     for entry in entries: scheduled[entry.course_offering_id]+=entry.block_length
     completion=[]
@@ -176,6 +206,7 @@ def validate_generated_entries(version, generated_entries, requirements, mode='R
     from rooms.models import RoomEligibilityException
     from rooms.services.eligibility import room_eligibility_error
     from scheduling.solver.engine import fixed_occupancy
+    from faculty.workload import workload_limits_by_faculty
 
     scope_ids=set(map(str, scope or []))
     fixed_section,fixed_faculty,fixed_room=fixed_occupancy(version,mode,scope)
@@ -290,6 +321,25 @@ def validate_generated_entries(version, generated_entries, requirements, mode='R
             offering=offerings.get(str(requirement.course_offering_id));section=sections.get(str(requirement.section_id))
             conflicts.append({'code':'REQUIREMENT_OCCURRENCE_COUNT','type':'REQUIREMENT_OCCURRENCE_COUNT','severity':'ERROR','course_code':offering.course.code if offering else None,'section':section.name if section else None,'section_id':requirement.section_id,'message':f'Requirement {requirement.requirement_id} must occur exactly once in the generated result.'})
     generated_offline_sections={str(item.get('section_id')) for item in generated_entries if item.get('delivery_mode')=='OFFLINE' and item.get('room_id') and item.get('weekday')==get_section_delivery_policy(sections.get(str(item.get('section_id'))),version.timetable.semester)[1]}
+    # Validate the complete post-generation schedule, including fixed entries.
+    complete_slots=defaultdict(set)
+    for key, ids in seen['FACULTY'].items():
+        if ids: complete_slots[key[:2]].add(key[2])
+    limits=workload_limits_by_faculty({key[0] for key in complete_slots})
+    for (faculty_id,weekday), occupied in complete_slots.items():
+        daily_limit,consecutive_limit=limits.get(faculty_id,(4,2))
+        daily_periods=sum(len(ids) for (fid,day,_slot),ids in seen['FACULTY'].items() if fid==faculty_id and day==weekday)
+        if daily_periods>daily_limit:
+            conflicts.append({'code':'FACULTY_DAILY_LIMIT_EXCEEDED','type':'FACULTY_DAILY_LIMIT_EXCEEDED','severity':'ERROR','faculty_id':faculty_id,'weekday':weekday,'periods':daily_periods,'limit':daily_limit,'message':f'Faculty {faculty_id} exceeds the daily teaching-period limit ({daily_periods} > {daily_limit}).'})
+        for template_slots in by_template.values():
+            run=[]
+            for slot in template_slots:
+                if slot.is_break:run=[]
+                elif str(slot.pk) in occupied:
+                    run.append(slot)
+                    if len(run)>consecutive_limit:
+                        conflicts.append({'code':'FACULTY_CONSECUTIVE_LIMIT_EXCEEDED','type':'FACULTY_CONSECUTIVE_LIMIT_EXCEEDED','severity':'ERROR','faculty_id':faculty_id,'weekday':weekday,'periods':len(run),'limit':consecutive_limit,'message':f'Faculty {faculty_id} exceeds the consecutive teaching-period limit ({len(run)} > {consecutive_limit}).'})
+                else:run=[]
     for section_id in sorted(official_hybrid_sections-(preserved_offline_sections|generated_offline_sections)):
         section=sections[section_id]
         conflicts.append({'code':'OFFLINE_DAY_MISSING','type':'OFFLINE_DAY_MISSING','severity':'ERROR','section_id':section_id,'section':section.name,'message':f'{section.name} must have at least one physical class on its configured offline weekday.'})

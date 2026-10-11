@@ -22,6 +22,36 @@ def preflight_generation(version,config,include_internal=False):
  if mode=='REBUILD_UNLOCKED':
   preserved=preserved.filter(Q(locked=True)|~Q(section_id__in=scope)) if scope else preserved.filter(locked=True)
  statistics={'fully_satisfied_offerings_skipped':0,'preserved_entry_count':preserved.count(),'preserved_period_count':sum(preserved.values_list('block_length',flat=True))};reqs,errors=build_requirements(version,config,statistics);errors += fixed_conflicts(version,mode,config.get('section_ids'));scope_diagnostics=scope_errors(version,config);errors += scope_diagnostics;errors += resource_capacity_diagnostics(version,reqs,config,statistics)
+ from faculty.models import Faculty, FacultyAvailability
+ from faculty.workload import workload_limits_by_faculty
+ from common.models import TimeSlot
+ limits=workload_limits_by_faculty({a.faculty_id for req in reqs for a in req.faculty}|set(preserved.values_list('faculty_assignments__faculty_id',flat=True)))
+ weekly=Counter();largest_block=defaultdict(int)
+ for req in reqs:
+  for assignment in req.faculty:
+   weekly[assignment.faculty_id]+=req.block_length
+   largest_block[assignment.faculty_id]=max(largest_block[assignment.faculty_id],req.block_length)
+ for faculty_id,block in preserved.values_list('faculty_assignments__faculty_id','block_length'):
+  if faculty_id:
+   faculty_id=str(faculty_id);weekly[faculty_id]+=block
+   largest_block[str(faculty_id)]=max(largest_block[str(faculty_id)],block)
+ slots=list(TimeSlot.objects.filter(template__institution=version.timetable.institution,is_break=False))
+ faculty_objects={str(item.pk):item for item in Faculty.objects.filter(pk__in=weekly)}
+ unavailable={(str(item.faculty_id),item.weekday,str(item.time_slot_id)) for item in FacultyAvailability.objects.filter(faculty_id__in=weekly,is_available=False)}
+ workload_diagnostics=[]
+ for faculty_id,required in weekly.items():
+  daily_limit,consecutive_limit=limits.get(str(faculty_id),(4,2));person=faculty_objects.get(str(faculty_id));name=(person.name or person.initials or person.employee_code) if person else str(faculty_id)
+  available_days=sum(any((str(faculty_id),day,str(slot.pk)) not in unavailable for slot in slots) for day in WORKING_DAYS)
+  suggested=(required+available_days-1)//available_days if available_days else None
+  item={'faculty_id':str(faculty_id),'faculty':name,'weekly_periods':required,'available_days':available_days,'max_daily_periods':daily_limit,'max_consecutive_periods':consecutive_limit,'suggested_daily_periods':suggested}
+  workload_diagnostics.append(item)
+  if available_days and suggested>daily_limit:
+   errors.append({'code':'FACULTY_DAILY_CAPACITY_INSUFFICIENT','faculty_id':str(faculty_id),'faculty':name,'weekly_periods':required,'available_days':available_days,'configured_daily_limit':daily_limit,'suggested_daily_periods':suggested,'message':f'{name} needs at least {suggested} periods per day to cover {required} weekly periods across {available_days} available days; the configured daily limit is {daily_limit}.'})
+  elif not available_days and required:
+   errors.append({'code':'FACULTY_NO_AVAILABLE_DAYS','faculty_id':str(faculty_id),'faculty':name,'weekly_periods':required,'available_days':0,'message':f'{name} has weekly teaching requirements but no available teaching days.'})
+  if largest_block.get(str(faculty_id),0)>consecutive_limit:
+   errors.append({'code':'FACULTY_BLOCK_EXCEEDS_CONSECUTIVE_LIMIT','faculty_id':str(faculty_id),'faculty':name,'required_block_size':largest_block[str(faculty_id)],'max_consecutive_periods':consecutive_limit,'message':f'{name} has a required {largest_block[str(faculty_id)]}-period block, exceeding the consecutive limit of {consecutive_limit}.'})
+ statistics['faculty_workload_capacity']=workload_diagnostics
  from academics.models import CourseOffering,Section,SectionWeeklyOffPolicy
  policy_qs=SectionWeeklyOffPolicy.objects.filter(is_active=True,academic_session=version.timetable.academic_session,semester=version.timetable.semester,section__program__code='BTECH-CSE',section__program__department__institution=version.timetable.institution,section__year__in=(2,3))
  if scope:policy_qs=policy_qs.filter(section_id__in=scope)
@@ -232,13 +262,13 @@ def _group_occurrences(requirements,candidates):
   groups.append({'requirement_id':group_id,'occurrence_count':len(members),'requirements':members,'candidates':list(canonical.values()),'section_id':members[0].section_id,'block_length':members[0].block_length,'faculty':members[0].faculty})
  return groups
 
-def _build_occurrence_model(groups,room_group_sizes,with_assumptions=False,disabled_families=(),required_offline_section_ids=()):
+def _build_occurrence_model(groups,room_group_sizes,with_assumptions=False,disabled_families=(),required_offline_section_ids=(),workload_limits=None,fixed_faculty=None,slot_segments=(),daily_slot_ids=()):
  disabled=set(disabled_families);model=cp_model.CpModel();variables=[];assumptions={};assumption_descriptions={}
  def family_literal(family,description):
   if family in disabled:return None
   if not with_assumptions:return None
   literal=model.NewBoolVar(f'assumption_{len(assumption_descriptions)}');model.AddAssumption(literal);assumptions[family]=literal;assumption_descriptions[literal.Index()]={'code':family,'constraint':description};return literal
- gates={family:family_literal(family,message) for family,message in [('SECTION_NO_OVERLAP','Section classes cannot overlap.'),('FACULTY_NO_OVERLAP','A faculty member cannot teach two classes in the same period.'),('ROOM_NO_OVERLAP','A physical room cannot host two classes in the same period.') ]}
+ gates={family:family_literal(family,message) for family,message in [('SECTION_NO_OVERLAP','Section classes cannot overlap.'),('FACULTY_NO_OVERLAP','A faculty member cannot teach two classes in the same period.'),('ROOM_NO_OVERLAP','A physical room cannot host two classes in the same period.'),('FACULTY_DAILY_LIMIT','Faculty daily teaching-period limits.'),('FACULTY_CONSECUTIVE_LIMIT','Faculty consecutive teaching-period limits.') ]}
  group_gates={}
  for group_index,group in enumerate(groups):
   if group_index % 100 == 0:_gen_log(f'model build progress groups={group_index}/{len(groups)}')
@@ -267,6 +297,33 @@ def _build_occurrence_model(groups,room_group_sizes,with_assumptions=False,disab
    maximum=1 if capacity is None else capacity[resource_id]
    constraint=model.Add(sum(resource_variables)<=maximum)
    if gates[family] is not None:constraint.OnlyEnforceIf(gates[family])
+ if workload_limits and 'FACULTY_DAILY_LIMIT' not in disabled and 'FACULTY_CONSECUTIVE_LIMIT' not in disabled:
+  fixed_faculty=fixed_faculty or {}
+  faculty_ids={key[0] for key in faculty_resources}|{key[0] for key in fixed_faculty}
+  variables_by_faculty_day=defaultdict(list);variables_by_faculty_slot=defaultdict(list)
+  fixed_by_faculty_day=Counter();fixed_by_faculty_slot=Counter()
+  for (fid,day,slot),values in faculty_resources.items():
+   variables_by_faculty_day[(fid,day)].extend(values)
+   variables_by_faculty_slot[(fid,day,slot)].extend(values)
+  for (fid,day,slot),ids in fixed_faculty.items():
+   fixed_by_faculty_day[(fid,day)]+=len(ids)
+   fixed_by_faculty_slot[(fid,day,slot)]+=len(ids)
+  for faculty_id in faculty_ids:
+   daily_limit,consecutive_limit=workload_limits.get(str(faculty_id),(4,2))
+   for weekday in range(5):
+    daily_vars=variables_by_faculty_day.get((faculty_id,weekday),[])
+    fixed_periods=fixed_by_faculty_day[(faculty_id,weekday)]
+    if (daily_vars or fixed_periods) and 'FACULTY_DAILY_LIMIT' not in disabled:
+     constraint=model.Add(sum(daily_vars)+fixed_periods<=daily_limit)
+     if gates['FACULTY_DAILY_LIMIT'] is not None:constraint.OnlyEnforceIf(gates['FACULTY_DAILY_LIMIT'])
+    for segment in slot_segments:
+     for start in range(max(0,len(segment)-consecutive_limit)):
+      window=segment[start:start+consecutive_limit+1]
+      variables_in_window=[var for slot_id in window for var in variables_by_faculty_slot.get((faculty_id,weekday,slot_id),[])]
+      fixed_in_window=sum(fixed_by_faculty_slot[(faculty_id,weekday,slot_id)] for slot_id in window)
+      if (variables_in_window or fixed_in_window) and 'FACULTY_CONSECUTIVE_LIMIT' not in disabled:
+       constraint=model.Add(sum(variables_in_window)+fixed_in_window<=consecutive_limit)
+       if gates['FACULTY_CONSECUTIVE_LIMIT'] is not None:constraint.OnlyEnforceIf(gates['FACULTY_CONSECUTIVE_LIMIT'])
  for section_id in required_offline_section_ids:
   model.Add(sum(offline_section_variables.get(str(section_id),[]))>=1)
  return model,variables,assumption_descriptions,group_variables
@@ -472,7 +529,24 @@ def run_generation(run,validated_requirements=None):
  hybrid_groups=[group for group in groups if any(item.requirement_id in hybrid_requirement_ids for item in group['requirements'])]
  hybrid_candidate_metrics={'offering_count':len({item.course_offering_id for group in hybrid_groups for item in group['requirements']}),'occurrence_group_count':len(hybrid_groups),'candidate_variables':sum(len(group['candidates']) for group in hybrid_groups),'online_candidate_variables':sum(candidate.delivery_mode=='ONLINE' for group in hybrid_groups for candidate in group['candidates']),'offline_candidate_variables':sum(candidate.delivery_mode!='ONLINE' for group in hybrid_groups for candidate in group['candidates']),'candidates_per_group_max':max((len(group['candidates']) for group in hybrid_groups),default=0),'candidates_per_group_average':sum(len(group['candidates']) for group in hybrid_groups)/len(hybrid_groups) if hybrid_groups else 0,'candidates_per_group_median':sorted(len(group['candidates']) for group in hybrid_groups)[len(hybrid_groups)//2] if hybrid_groups else 0}
  required_offline_section_ids=_required_offline_sections(run.source_version,reqs,run.mode,run.input_config.get('section_ids'))
- model,variables,assumption_descriptions,group_variables=_build_occurrence_model(groups,room_group_sizes,required_offline_section_ids=required_offline_section_ids)
+ from common.models import TimeSlot
+ from faculty.workload import workload_limits_by_faculty
+ fixed_faculty=fixed_occupancy(run.source_version,run.mode,run.input_config.get('section_ids'))[1]
+ faculty_ids={assignment.faculty_id for req in reqs for assignment in req.faculty}|{key[0] for key in fixed_faculty}
+ workload_limits=workload_limits_by_faculty(faculty_ids)
+ slot_rows=list(TimeSlot.objects.filter(template__institution=run.timetable.institution).order_by('template_id','order'))
+ slot_segments=[];segment=[];last_template=None
+ for slot in slot_rows:
+  if slot.template_id!=last_template:
+   if segment:slot_segments.append(segment)
+   segment=[];last_template=slot.template_id
+  if slot.is_break:
+   if segment:slot_segments.append(segment)
+   segment=[]
+  else:segment.append(str(slot.pk))
+ if segment:slot_segments.append(segment)
+ daily_slot_ids={str(slot.pk) for slot in slot_rows if not slot.is_break}
+ model,variables,assumption_descriptions,group_variables=_build_occurrence_model(groups,room_group_sizes,required_offline_section_ids=required_offline_section_ids,workload_limits=workload_limits,fixed_faculty=fixed_faculty,slot_segments=slot_segments,daily_slot_ids=daily_slot_ids)
  timings['model_construction_seconds']=time.perf_counter()-model_started
  decision_variables=[variable for variable,_candidate,_group_id in variables]
  raw_candidate_count=candidate_count
@@ -526,7 +600,7 @@ def run_generation(run,validated_requirements=None):
  if phase1_status not in (cp_model.OPTIMAL,cp_model.FEASIBLE) and not (phase1_status==cp_model.UNKNOWN and seed_result['valid']):
   infeasible_core=[];diagnostic_model_stats={}
   if phase1_status==cp_model.INFEASIBLE:
-   diagnostic_model,diagnostic_variables,diagnostic_descriptions,_diagnostic_groups=_build_occurrence_model(groups,room_group_sizes,with_assumptions=True)
+   diagnostic_model,diagnostic_variables,diagnostic_descriptions,_diagnostic_groups=_build_occurrence_model(groups,room_group_sizes,with_assumptions=True,workload_limits=workload_limits,fixed_faculty=fixed_faculty,slot_segments=slot_segments,daily_slot_ids=daily_slot_ids)
    diagnostic_solver=cp_model.CpSolver();diagnostic_solver.parameters.max_time_in_seconds=min(5.0,max(0.1,max_solve_seconds/10));diagnostic_started=time.perf_counter();diagnostic_status=diagnostic_solver.Solve(diagnostic_model);diagnostic_elapsed=time.perf_counter()-diagnostic_started
    if diagnostic_status==cp_model.INFEASIBLE:
     for literal_index in diagnostic_solver.SufficientAssumptionsForInfeasibility():

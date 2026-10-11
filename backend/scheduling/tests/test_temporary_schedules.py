@@ -77,6 +77,29 @@ def test_publish_requires_override_and_keeps_base_immutable(temporary_data):
     assert ScheduleEntry.objects.filter(pk=d['entry'].pk).exists()
 
 
+@pytest.mark.django_db
+def test_publish_validation_rejects_inactive_temporary_room_or_faculty(temporary_data):
+    d=temporary_data
+    client=APIClient();client.force_authenticate(d['admin'])
+    for resource in ('room','faculty'):
+        plan=make_plan(d)
+        block=make_block(d,plan,override=True)
+        if resource=='room':
+            block.room=d['room'];block.save()
+            d['room'].active=False;d['room'].save(update_fields=['active'])
+        else:
+            block.faculty.add(d['faculty'])
+            d['faculty'].active=False;d['faculty'].save(update_fields=['active'])
+        response=client.post(f'/api/temporary-schedules/{plan.pk}/publish/',{},format='json')
+        assert response.status_code==400
+        assert any(row['code']==f'INACTIVE_{resource.upper()}' for row in response.data['conflicts'])
+        assert plan.status=='DRAFT'
+        if resource=='room':
+            d['room'].active=True;d['room'].save(update_fields=['active'])
+        else:
+            d['faculty'].active=True;d['faculty'].save(update_fields=['active'])
+
+
 def make_plan(d, *, status='DRAFT', priority=0, end=date(2026,10,12)):
     plan=TemporarySchedulePlan.objects.create(base_timetable_version=d['version'],title='Training',event_type='TRAINING',
         start_date=date(2026,10,5),end_date=end,created_by=d['admin'],status=status,priority=priority)
@@ -535,6 +558,34 @@ def test_temporary_room_options_are_unpaginated_active_and_lightweight(temporary
     assert {'id','code','building','floor','capacity','room_type','room_type_label','has_projector'}<=set(options.data[0])
     crud=client.get('/api/rooms/')
     assert crud.status_code==200 and crud.data['count']==26 and len(crud.data['results'])==10
+
+
+@pytest.mark.django_db
+def test_resource_option_contract_and_room_assignment_requires_canonical_active_id(temporary_data):
+    d=temporary_data
+    inactive=Room.objects.create(code='INACTIVE-PICK',building='Annex',floor='1',capacity=10,active=False)
+    inactive_faculty=Faculty.objects.create(name='Inactive person',employee_code='INACTIVE-F',department=d['department'],active=False)
+    client=APIClient();client.force_authenticate(d['admin'])
+    room_response=client.get('/api/temporary-schedules/room-options/')
+    faculty_response=client.get('/api/temporary-schedules/faculty-options/')
+    assert room_response.status_code==faculty_response.status_code==200
+    assert isinstance(room_response.data,list) and isinstance(faculty_response.data,list)
+    assert all({'id','code','building','floor','capacity','room_type_label'}<=row.keys() for row in room_response.data)
+    assert all({'id','name','employee_code'}<=row.keys() for row in faculty_response.data)
+    assert not any(row['id']==str(inactive.pk) for row in room_response.data)
+    assert not any(row['id']==str(inactive_faculty.pk) for row in faculty_response.data)
+    pattern={'mode':'weekday','weekdays':[0],'start_slot':slot_id_at(d,10),'end_slot':slot_id_at(d,10),
+        'room_assignment':'SHARED','room_id':str(d['room'].pk),'faculty':[str(d['faculty'].pk)],'override_regular_class':True}
+    created=post_plan_with_patterns(d,[pattern])
+    block=TemporarySchedulePlan.objects.get(pk=created.data['id']).blocks.get()
+    assert created.status_code==201 and block.room_id==d['room'].pk
+    assert list(block.faculty.values_list('pk',flat=True))==[d['faculty'].pk]
+    missing=post_plan_with_patterns(d,[{**pattern,'room_id':None}])
+    assert missing.status_code==400 and 'room' in missing.data
+    inactive_room=post_plan_with_patterns(d,[{**pattern,'room_id':str(inactive.pk)}])
+    assert inactive_room.status_code==400 and 'room' in inactive_room.data
+    inactive_trainer=post_plan_with_patterns(d,[{**pattern,'faculty':[str(inactive_faculty.pk)]}])
+    assert inactive_trainer.status_code==400 and 'faculty' in inactive_trainer.data
 
 
 @pytest.mark.django_db

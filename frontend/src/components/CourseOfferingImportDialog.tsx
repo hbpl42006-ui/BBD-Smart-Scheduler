@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api/client';
 
@@ -42,7 +43,7 @@ export function CourseOfferingImportDialog({ onComplete }: { onComplete: () => v
   };
 
   return <>
-    <Button variant="outline" onClick={() => setOpen(true)}>Import Offerings</Button>
+    <Button type="button" variant="outline" onClick={() => setOpen(true)}><Upload className="mr-2 h-4 w-4" />Import</Button>
     {open && <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
       <div className="max-h-[90vh] w-full max-w-5xl overflow-auto rounded-xl bg-white p-6">
         <h2 className="text-lg font-semibold">Import Course Offerings</h2>

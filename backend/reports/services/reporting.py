@@ -66,7 +66,7 @@ def entry_row(entry):
     return {'entry_id': str(entry.pk), 'section_id': str(entry.section_id), 'section': str(entry.section), 'program': entry.section.program.name,
             'year': entry.section.year, 'semester': entry.section.semester.name, 'session': entry.section.semester.session.name, 'day': DAYS.get(entry.weekday, str(entry.weekday)),
             'weekday': entry.weekday, 'time': entry.start_slot.label, 'course_offering_id': str(entry.course_offering_id),
-            'course_code': entry.course_offering.course.code, 'course_name': entry.course_offering.course.name,
+            'course_code': entry.course_offering.course.code, 'course_name': entry.course_offering.course.name, 'credit': entry.course_offering.course.credit,
             'faculty': faculties, 'faculty_names': ', '.join(x['name'] for x in faculties), 'room': entry.room.code if entry.room else '',
             'room_id': str(entry.room_id) if entry.room_id else None, 'entry_type': entry.entry_type, 'delivery_mode': entry.delivery_mode,
             'start_time': entry.start_slot.start_time.strftime('%H:%M'), 'end_time': end_slot.end_time.strftime('%H:%M'), 'block_length': entry.block_length}
@@ -74,11 +74,16 @@ def entry_row(entry):
 
 def faculty_workload(request):
     if request.user.role == 'FACULTY' and getattr(request.user, 'faculty_profile', None): request = _with_query(request, faculty=str(request.user.faculty_profile.pk))
-    version = _version(request); grouped = defaultdict(lambda: {'assigned_courses': set(), 'sections': set(), 'lecture_periods': 0, 'practical_periods': 0, 'total_scheduled_periods': 0})
+    version = _version(request); grouped = defaultdict(lambda: {'assigned_courses': set(), 'sections': set(), 'lecture_periods': 0, 'practical_periods': 0, 'total_scheduled_periods': 0, 'day_periods': defaultdict(int)}); faculty_schedule = defaultdict(lambda: defaultdict(set)); calendar_by_template = {}
     if version:
         for entry in _entries(request, version):
+            calendar = calendar_by_template.setdefault(entry.start_slot.template_id, list(TimeSlot.objects.filter(template_id=entry.start_slot.template_id).order_by('order')))
+            position = next((index for index, slot in enumerate(calendar) if slot.pk == entry.start_slot_id), -1)
+            occupied = calendar[position:position + entry.block_length] if position >= 0 else []
             for assignment in entry.faculty_assignments.all():
                 row = grouped[assignment.faculty_id]; row['assigned_courses'].add(entry.course_offering.course.code); row['sections'].add(str(entry.section)); row['total_scheduled_periods'] += entry.block_length
+                row['day_periods'][entry.weekday] += entry.block_length
+                faculty_schedule[assignment.faculty_id][entry.weekday].update(str(slot.pk) for slot in occupied if not slot.is_break)
                 if entry.entry_type == 'PRACTICAL': row['practical_periods'] += entry.block_length
                 else: row['lecture_periods'] += entry.block_length
     # Keep the report scoped to active faculty in the same academic/filter scope,
@@ -86,11 +91,33 @@ def faculty_workload(request):
     faculty_qs = Faculty.objects.select_related('user', 'department').filter(active=True)
     if request.query_params.get('faculty'): faculty_qs = faculty_qs.filter(pk=request.query_params['faculty'])
     if request.query_params.get('department'): faculty_qs = faculty_qs.filter(department_id=request.query_params['department'])
-    rows = [{'faculty_id': str(f.pk), 'faculty_name': faculty_name(f), 'employee_code': f.employee_code, 'department': f.department.name,
+    from faculty.workload import workload_limits_by_faculty
+    policies = workload_limits_by_faculty(f.pk for f in faculty_qs)
+    rows = []
+    for f in faculty_qs:
+        daily_limit, consecutive_limit = policies.get(str(f.pk), (4, 2))
+        day_slots = faculty_schedule[f.pk]
+        daily_periods = grouped[f.pk]['day_periods']
+        highest_daily = max((daily_periods.get(day, 0) for day in WORKING_DAYS), default=0)
+        highest_consecutive = 0
+        for calendar in calendar_by_template.values():
+            for day in WORKING_DAYS:
+                streak = 0
+                for slot in calendar:
+                    if slot.is_break:
+                        streak = 0
+                    elif str(slot.pk) in day_slots.get(day, set()):
+                        streak += 1; highest_consecutive = max(highest_consecutive, streak)
+                    else:
+                        streak = 0
+        rows.append({'faculty_id': str(f.pk), 'faculty_name': faculty_name(f), 'employee_code': f.employee_code, 'department': f.department.name,
              'assigned_courses': sorted(grouped[f.pk]['assigned_courses']), 'sections': sorted(grouped[f.pk]['sections']),
              'lecture_periods': grouped[f.pk]['lecture_periods'], 'practical_periods': grouped[f.pk]['practical_periods'],
              'total_scheduled_periods': grouped[f.pk]['total_scheduled_periods'], 'total_weekly_teaching_hours': grouped[f.pk]['total_scheduled_periods'],
-             'distinct_courses': len(grouped[f.pk]['assigned_courses']), 'distinct_sections': len(grouped[f.pk]['sections'])} for f in faculty_qs]
+             'distinct_courses': len(grouped[f.pk]['assigned_courses']), 'distinct_sections': len(grouped[f.pk]['sections']),
+             'max_daily_periods': daily_limit, 'max_consecutive_periods': consecutive_limit,
+             'highest_daily_load': highest_daily, 'highest_consecutive_load': highest_consecutive,
+             'daily_limit_exceeded': highest_daily > daily_limit, 'consecutive_limit_exceeded': highest_consecutive > consecutive_limit})
     return sorted(rows, key=lambda row: (-row['total_scheduled_periods'], row['faculty_name'].lower()))
 
 def _with_query(request, **values):
@@ -648,6 +675,26 @@ def faculty_timetable_visual(request):
     def faculty_label(faculty):
         return faculty_name(faculty) or 'Unnamed faculty'
 
+    def longest_consecutive_load(faculty_id, entries):
+        longest = 0
+        template_ids = {entry.start_slot.template_id for entry in entries}
+        for template_id in template_ids:
+            calendar = slots_by_template.get(template_id, [])
+            for day in scoped_days:
+                occupied = {slot_id for entry in entries if entry.weekday == day and
+                            any(str(item.faculty_id) == str(faculty_id) for item in assignments_by_entry.get(entry.pk, []))
+                            for slot_id in entry_payload(entry, include_faculty=False)['occupied_slot_ids']}
+                run = 0
+                for slot in calendar:
+                    if slot.is_break:
+                        run = 0
+                    elif str(slot.pk) in occupied:
+                        run += 1
+                        longest = max(longest, run)
+                    else:
+                        run = 0
+        return longest
+
     def entry_payload(entry, include_faculty=True):
         row = entry_row(entry)
         calendar = slots_by_template.get(entry.start_slot.template_id, [])
@@ -711,6 +758,8 @@ def faculty_timetable_visual(request):
                 'section_load': sorted(section_data.values(), key=lambda x: (-x['periods'], x['section'].casefold())),
                 'room_load': sorted(room_data.values(), key=lambda x: (-x['periods'], x['room'].casefold()))}
 
+    from faculty.workload import workload_limits_by_faculty
+    report_limits = workload_limits_by_faculty({faculty.pk for faculty in faculty_scope})
     faculty_rows = []
     all_periods = all_courses = 0
     distribution = [0, 0, 0, 0, 0, 0]
@@ -722,10 +771,17 @@ def faculty_timetable_visual(request):
         count = metric['teaching_periods']
         bucket = 0 if count == 0 else 1 if count <= 5 else 2 if count <= 10 else 3 if count <= 15 else 4 if count <= 20 else 5
         distribution[bucket] += 1
+        daily_limit, consecutive_limit = report_limits.get(str(faculty.pk), (4, 2))
+        highest_daily = max((item['periods'] for item in metric['day_load']), default=0)
+        highest_consecutive = longest_consecutive_load(faculty.pk, entries)
         faculty_rows.append({'faculty_id': str(faculty.pk), 'faculty_name': faculty_label(faculty),
                              'employee_code': faculty.employee_code or '', 'department': faculty.department.name,
                              'teaching_periods': count, 'scheduled_classes': metric['scheduled_classes'],
-                             'distinct_courses': metric['distinct_courses'], 'distinct_sections': metric['distinct_sections']})
+                             'distinct_courses': metric['distinct_courses'], 'distinct_sections': metric['distinct_sections'],
+                             'max_daily_periods': daily_limit, 'max_consecutive_periods': consecutive_limit,
+                             'highest_daily_load': highest_daily, 'daily_limit_exceeded': highest_daily > daily_limit,
+                             'highest_consecutive_load': highest_consecutive,
+                             'consecutive_limit_exceeded': highest_consecutive > consecutive_limit})
     faculty_rows.sort(key=lambda row: (-row['teaching_periods'], row['faculty_name'].casefold(), row['faculty_id']))
     week_keys = ['0 periods', '1-5 periods', '6-10 periods', '11-15 periods', '16-20 periods', '21+ periods']
     overview = {'faculty_with_published_classes': sum(row['teaching_periods'] > 0 for row in faculty_rows),
@@ -745,6 +801,13 @@ def faculty_timetable_visual(request):
                 'availability': {'configured': False, 'message': 'Select a faculty member to see configured availability.'}}
 
     metrics = summarize(selected_rows)
+    daily_limit, consecutive_limit = report_limits.get(str(selected.pk), (4, 2))
+    highest_consecutive = longest_consecutive_load(selected.pk, selected_rows)
+    metrics.update({'max_daily_periods': daily_limit, 'max_consecutive_periods': consecutive_limit,
+                    'highest_daily_load': max((item['periods'] for item in metrics['day_load']), default=0),
+                    'daily_limit_exceeded': max((item['periods'] for item in metrics['day_load']), default=0) > daily_limit,
+                    'highest_consecutive_load': highest_consecutive,
+                    'consecutive_limit_exceeded': highest_consecutive > consecutive_limit})
     selected_slots = next((slots_by_template.get(entry.start_slot.template_id, []) for entry in selected_rows), None)
     if selected_slots is None:
         selected_slots = slots_by_template.get(templates[0].pk, []) if templates else []

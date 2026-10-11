@@ -150,9 +150,9 @@ class FacultyTimetableReportView(ReportView):
         fmt = (request.query_params.get('export') or request.query_params.get('format', '')).lower()
         if fmt in ('csv', 'xlsx'):
             rows = self.builder(request)
-            fields = (('Faculty', 'faculty_names'), ('Employee Code', 'employee_code'), ('Department', 'department'),
+            fields = (('Faculty Name', 'faculty_names'), ('Employee Code', 'employee_code'), ('Department', 'department'),
                       ('Day', 'day'), ('Start Time', 'start_time'), ('End Time', 'end_time'),
-                      ('Course Code', 'course_code'), ('Course Name', 'course_name'), ('Section', 'section'),
+                      ('Course Code', 'course_code'), ('Course Name', 'course_name'), ('Course Credit', 'credit'), ('Section', 'section'),
                       ('Program', 'program'), ('Year', 'year'), ('Semester', 'semester'), ('Academic Session', 'session'),
                       ('Room', 'room'), ('Delivery Mode', 'delivery_mode'), ('Block Length', 'block_length'))
             export_rows = [{label: row.get(key, '') for label, key in fields} for row in rows]

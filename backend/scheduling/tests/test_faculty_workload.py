@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from accounts.models import Role, User
 from academics.models import AcademicSession, Course, CourseOffering, Section, Semester
 from common.models import TimeSlot, TimeSlotTemplate
-from faculty.models import Faculty
+from faculty.models import Faculty, FacultyWorkloadPolicy, FacultyWorkloadOverride
 from institutions.models import Department, Institution, Program
 from rooms.models import Room
 from scheduling.models import ScheduleEntry, ScheduleEntryFaculty, Timetable, TimetableVersion
@@ -126,3 +126,58 @@ def test_workload_returns_multiple_same_slot_entries_without_overwriting(workloa
     same_slot = [entry for entry in response.data['entries'] if entry['weekday'] == 0 and str(entry['start_slot']) == str(workload_data['slots'][0].pk)]
     assert response.status_code == 200
     assert len(same_slot) == 2
+
+
+@pytest.mark.django_db
+def test_workload_policy_defaults_and_explicit_faculty_override(workload_data):
+    client = APIClient()
+    client.force_authenticate(workload_data['admin'])
+    response = client.get('/api/faculty-workload-policy/')
+    assert response.status_code == 200
+    assert response.data['defaults'] == {'max_daily_periods': 4, 'max_consecutive_periods': 2}
+    row = next(item for item in response.data['faculty'] if item['id'] == str(workload_data['faculty_a'].pk))
+    assert row['weekly_periods'] == 3
+    assert row['available_days'] == 5
+    assert row['suggested_daily_periods'] == 1
+    response = client.post('/api/faculty-workload-policy/overrides/', {
+        'faculty_id': str(workload_data['faculty_a'].pk), 'max_daily_periods': row['suggested_daily_periods'],
+        'max_consecutive_periods': 1, 'enabled': True,
+    }, format='json')
+    assert response.status_code == 200, response.data
+    override = FacultyWorkloadOverride.objects.get(faculty=workload_data['faculty_a'])
+    assert override.enabled is True
+    assert (override.max_daily_periods, override.max_consecutive_periods) == (1, 1)
+
+
+@pytest.mark.django_db
+def test_workload_policy_rejects_daily_limit_above_calendar_capacity(workload_data):
+    client = APIClient()
+    client.force_authenticate(workload_data['admin'])
+    response = client.put('/api/faculty-workload-policy/', {
+        'max_daily_periods': 3, 'max_consecutive_periods': 2,
+    }, format='json')
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_workload_validator_enforces_per_faculty_consecutive_limit(workload_data):
+    from scheduling.services.validation import validate_version
+    FacultyWorkloadPolicy.objects.create(max_daily_periods=4, max_consecutive_periods=1)
+    # The existing practical block already assigns two consecutive periods.
+    result = validate_version(workload_data['version'])
+    assert any(item.get('code', item.get('type')) == 'FACULTY_CONSECUTIVE_LIMIT_EXCEEDED' for item in result['conflicts'])
+
+
+@pytest.mark.django_db
+def test_published_workload_report_includes_policy_load_metrics(workload_data):
+    client = APIClient()
+    client.force_authenticate(workload_data['admin'])
+    response = client.get(f"/api/reports/faculty-workload/?version={workload_data['version'].pk}")
+    assert response.status_code == 200
+    row = next(item for item in response.data if item['faculty_id'] == str(workload_data['faculty_a'].pk))
+    assert row['max_daily_periods'] == 4
+    assert row['max_consecutive_periods'] == 2
+    assert row['highest_daily_load'] == 3
+    assert row['highest_consecutive_load'] == 2
+    assert row['daily_limit_exceeded'] is False
+    assert row['consecutive_limit_exceeded'] is False

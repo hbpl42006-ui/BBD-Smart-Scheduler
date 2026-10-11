@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-DEFAULT_OBJECTIVE_WEIGHTS={'spread_course_days':10,'balance_section_load':5,'minimize_section_gaps':4,'minimize_faculty_gaps':2,'preserve_existing':8,'preferred_room':10}
+DEFAULT_OBJECTIVE_WEIGHTS={'spread_course_days':10,'balance_section_load':5,'balance_faculty_load':4,'minimize_section_gaps':4,'minimize_faculty_gaps':2,'preserve_existing':8,'preferred_room':10}
 def internal_gap_count(occupied_orders,break_orders=()):
     occupied=set(occupied_orders);breaks=set(break_orders)
     if len(occupied)<2:return 0
@@ -37,6 +37,11 @@ def _base_candidate_score(candidate,config,entries,context):
     started=perf_counter()
     day_load=sum(entry.block_length for entry in entries if entry.weekday==candidate.weekday)
     score -= day_load*w['balance_section_load']
+    context['objective_profile']['daily_balance']+=perf_counter()-started
+    started=perf_counter()
+    for assignment in candidate.faculty:
+        faculty_day_load=sum(entry.block_length for entry in context['entries_by_faculty_day'].get((str(assignment.faculty_id),candidate.weekday),[]))
+        score -= faculty_day_load*w['balance_faculty_load']
     context['objective_profile']['daily_balance']+=perf_counter()-started
     start_order=context['slot_orders'].get(str(candidate.start_slot_id),0)
 

@@ -101,6 +101,7 @@ class CourseViewSet(BaseViewSet):
         elif status_filter != 'all' and not include_inactive:
             queryset = queryset.filter(active=True)
         return queryset
+
     def destroy(self, request, *args, **kwargs):
         instance=self.get_object()
         if CourseOffering.objects.filter(course=instance).exists():
@@ -113,6 +114,16 @@ class CourseViewSet(BaseViewSet):
     @action(detail=True, methods=['post'], url_path='restore')
     def restore(self, request, pk=None):
         course = Course.objects.get(pk=pk); course.active = True; course.save(update_fields=['active']); return Response(self.get_serializer(course).data)
+
+@api_view(['GET'])
+@permission_classes([RolePermission])
+def course_options(request):
+    queryset=Course.objects.filter(active=True).order_by('code','name')
+    search=request.query_params.get('search','').strip()
+    if search:
+        queryset=queryset.filter(Q(code__icontains=search)|Q(name__icontains=search))
+    return Response([{'id':str(course.pk),'code':course.code,'name':course.name,'credit':course.credit} for course in queryset])
+
 class CourseOfferingViewSet(BaseViewSet):
     queryset=CourseOffering.objects.select_related('course','section__program','semester__session','preferred_room').prefetch_related('faculties__faculty__department'); serializer_class=CourseOfferingSerializer; filterset_fields=('semester','section','course','active','default_class_type')
     search_fields=('course__code','course__name','section__name','faculties__faculty__employee_code','faculties__faculty__name')

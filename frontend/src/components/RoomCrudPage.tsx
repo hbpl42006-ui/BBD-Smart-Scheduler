@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { Header } from '@/components/layout/Header';
 import { PageHeader } from '@/components/PageHeader';
+import { ImportExportActions } from '@/components/ImportExportActions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { BulkImportDialog } from '@/components/BulkImportDialog';
 import { me } from '@/lib/api/auth';
 import { apiErrorMessage, clearListCache, create, listAll, update, type Entity } from '@/lib/api/resources';
 import { canCreate, canEdit, canDeactivate, canImport, type Role } from '@/lib/permissions';
@@ -94,8 +94,8 @@ export function RoomCrudPage() {
   };
 
   return <AdminLayout><Header title="Rooms & Labs"/><main className="mx-auto w-full max-w-[1500px] space-y-4 p-5 sm:p-8">
-    <PageHeader title="Rooms & Labs" description="Manage teaching spaces, year eligibility, and exclusive program reservations."/>
-    <div className="flex flex-wrap gap-2">{canCreate(role) && <Button onClick={() => { setEditing(null); setForm(emptyRoom); setOpen(true); }}>Add Room</Button>}{canImport(role) && <BulkImportDialog kind="rooms" onComplete={() => void load()}/>}</div>
+    <PageHeader title="Rooms & Labs" description="Manage teaching spaces, year eligibility, and exclusive program reservations." hideDefaultExport extraAction={<ImportExportActions kind="rooms" endpoint="rooms" canImport={canImport(role)} onComplete={() => void load()}/>}/>
+    <div className="flex flex-wrap gap-2">{canCreate(role) && <Button onClick={() => { setEditing(null); setForm(emptyRoom); setOpen(true); }}>Add Room</Button>}</div>
     {error && !open && <p className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <Card><CardContent className="overflow-x-auto p-0"><table className="w-full text-left text-sm"><thead className="border-b bg-slate-50"><tr>{['Room No.','Building','Floor','Capacity','Room type','Projector','Allowed Year','Reservation','Status','Actions'].map(label => <th key={label} className="p-3">{label}</th>)}</tr></thead><tbody>
       {rooms.map(room => <tr className="border-b" key={room.id}><td className="p-3">{room.code}</td><td className="p-3">{room.building}</td><td className="p-3">{room.floor}</td><td className="p-3">{room.capacity}</td><td className="p-3">{room.room_type_display || roomTypes.find(([value]) => value === room.room_type)?.[1] || room.room_type || '—'}</td><td className="p-3">{room.has_projector ? 'Yes' : 'No'}</td><td className="p-3">{room.allowed_year ? `Year ${room.allowed_year} Only` : 'All Years'}</td><td className="p-3">{room.exclusive_reservation ? `Reserved: ${programs.find(program => program.id === room.reserved_program)?.name || 'Program not assigned'} Year ${room.reserved_year ?? '?'}` : '—'}</td><td className="p-3">{room.active ? 'Active' : 'Inactive'}</td><td className="p-3">{canEdit(role) && <Button variant="outline" size="sm" onClick={() => startEdit(room)}>Edit</Button>}{canDeactivate(role) && <Button className="ml-2" variant="outline" size="sm" disabled={mutatingRoomId === room.id} onClick={() => room.active ? setPendingRoom(room) : void setRoomActive(room, true)}>{mutatingRoomId === room.id ? (room.active ? 'Deactivating…' : 'Activating…') : room.active ? 'Deactivate' : 'Activate'}</Button>}</td></tr>)}

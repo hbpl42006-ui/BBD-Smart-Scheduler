@@ -507,7 +507,7 @@ class FacultyTimetableVisualReportTests(SectionTimetableReportTests):
         csv_response = self.client.get('/api/reports/faculty-timetable/', {**query, 'export': 'csv'})
         self.assertEqual(csv_response.status_code, 200)
         header = csv_response.content.decode().splitlines()[0]
-        for label in ('Faculty', 'Employee Code', 'Department', 'Day', 'Start Time', 'End Time', 'Course Code', 'Course Name', 'Section', 'Program', 'Year', 'Semester', 'Academic Session', 'Room', 'Delivery Mode', 'Block Length'):
+        for label in ('Faculty Name', 'Employee Code', 'Course Credit', 'Department', 'Day', 'Start Time', 'End Time', 'Course Code', 'Course Name', 'Section', 'Program', 'Year', 'Semester', 'Academic Session', 'Room', 'Delivery Mode', 'Block Length'):
             self.assertIn(label, header)
         self.assertNotIn('entry_id', header)
         xlsx_response = self.client.get('/api/reports/faculty-timetable/', {**query, 'export': 'xlsx'})
@@ -516,6 +516,7 @@ class FacultyTimetableVisualReportTests(SectionTimetableReportTests):
         from openpyxl import load_workbook
         sheet = load_workbook(BytesIO(xlsx_response.content), read_only=True).active
         self.assertIn('Course Code', [cell.value for cell in next(sheet.iter_rows())])
+        self.assertIn('Course Credit', [cell.value for cell in next(sheet.iter_rows())])
 
 
 class CourseAllocationReportTests(SectionTimetableReportTests):

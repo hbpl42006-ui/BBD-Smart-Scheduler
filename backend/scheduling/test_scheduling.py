@@ -1031,7 +1031,32 @@ def test_timetable_import_preview_is_read_only_and_template_available(client,dat
     body=b'Section,Course Code,Employee Code,Day,Time Slot,Room No.\nA,CS101,F001,Monday,9:00-10:00,R101\n'
     response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('timetable.csv',body,content_type='text/csv')},format='multipart')
     assert response.status_code==200 and response.data['valid']==1 and data['version'].entries.count()==0
+    assert response.data['rows'][0]['faculty_name']=='Test Faculty' and response.data['rows'][0]['credit']=='3.0'
     template=client.get(f'/api/versions/{data["version"].pk}/imports/timetable/template/'); assert template.status_code==200 and template['Content-Type'].startswith('application/vnd.openxmlformats')
+    from openpyxl import load_workbook
+    sheet=load_workbook(BytesIO(template.content),read_only=True).active
+    assert [cell.value for cell in next(sheet.iter_rows())]==['Section','Course Code','Credit','Employee Code','Faculty Name','Day','Time Slot','Room No.']
+
+@pytest.mark.parametrize(('credit','expected'), [('3','VALID'), ('3.0','VALID'), ('2','INVALID')])
+def test_timetable_import_optional_credit_validates_without_mutating_course(client,data,credit,expected):
+    from faculty.models import CourseOfferingFaculty
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    body=f'Section,Course Code,Credit,Employee Code,Faculty Name,Day,Time Slot,Room No.\nA,CS101,{credit},F001,Test Faculty,Monday,9:00-10:00,R101\n'.encode()
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('timetable.csv',body,content_type='text/csv')},format='multipart')
+    assert response.status_code==200 and response.data['rows'][0]['status']==expected
+    data['course'].refresh_from_db()
+    assert str(data['course'].credit)=='3.0'
+    if expected=='INVALID': assert response.data['errors'][0]['code']=='CREDIT_MISMATCH'
+
+def test_timetable_import_faculty_name_cannot_override_employee_code(client,data):
+    from faculty.models import CourseOfferingFaculty
+    other=Faculty.objects.create(user=None,employee_code='F002',name='Other Faculty',initials='OF',department=data['department'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=data['faculty'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'],faculty=other)
+    body=b'Section,Course Code,Credit,Employee Code,Faculty Name,Day,Time Slot,Room No.\nA,CS101,3,F001,Other Faculty,Monday,9:00-10:00,R101\n'
+    response=client.post(f'/api/versions/{data["version"].pk}/imports/timetable/preview/',{'file':SimpleUploadedFile('timetable.csv',body,content_type='text/csv')},format='multipart')
+    assert response.data['invalid']==1 and response.data['errors'][0]['code']=='FACULTY_NAME_MISMATCH'
+    assert not data['version'].entries.exists()
 
 @pytest.mark.parametrize('day', ['Saturday', 'Sunday'])
 def test_timetable_import_rejects_weekend_days(client, data, day):

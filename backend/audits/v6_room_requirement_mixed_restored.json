@@ -1,0 +1,12 @@
+{
+  "mode": "restore_mixed",
+  "version_id": "e5ba666e-b867-4d08-8960-7ede38c98222",
+  "backup_path": "F:\\BBD Smart Scheduler\\backend\\backups\\pre_v6_room_requirement_repair_20261011_082542_400860_UTC.sqlite3",
+  "offerings_restored": 4,
+  "restored_offering_ids": [
+    "00b575e0-c69b-4a05-8fb7-81ed1ffcbad1",
+    "084037a1-77b3-4b75-a4ea-fae78da1b563",
+    "618debe4-93a2-49e7-a34a-9ddb44a2eaf8",
+    "b7269de0-83a3-4626-bc48-b2c97dad769d"
+  ]
+}

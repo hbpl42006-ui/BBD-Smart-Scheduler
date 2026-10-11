@@ -96,6 +96,44 @@ def test_bulk_objective_context_preserves_candidate_score(data):
     context = build_objective_context(data['version'])
     assert candidate_score(candidate, data['version'], config, context) == candidate_score(candidate, data['version'], config)
 
+
+def test_faculty_daily_balance_is_a_soft_objective(data):
+    from dataclasses import replace
+    entry = ScheduleEntry.objects.create(version=data['version'], section=data['section'], course_offering=data['offering'],
+        weekday=0, start_slot=data['slots'][0], room=data['room'], block_length=1)
+    ScheduleEntryFaculty.objects.create(schedule_entry=entry, faculty=data['faculty'], role='PRIMARY')
+    assignment = (FacultyAssignment(str(data['faculty'].pk), 'PRIMARY'),)
+    monday = Candidate('balance', str(data['offering'].pk), str(data['section'].pk), 0,
+        str(data['slots'][2].pk), (str(data['slots'][2].pk),), 1, str(data['room'].pk), assignment, 'LECTURE')
+    tuesday = replace(monday, weekday=1)
+    config = {'mode': 'FILL_GAPS', 'soft_constraints': {'spread_course_days': 0, 'balance_section_load': 0,
+        'balance_faculty_load': 10, 'minimize_section_gaps': 0, 'minimize_faculty_gaps': 0, 'preserve_existing': 0}}
+    context = build_objective_context(data['version'])
+    assert candidate_score(tuesday, data['version'], config, context) > candidate_score(monday, data['version'], config, context)
+
+
+@pytest.mark.parametrize('limits,expected_code', [((1, 2), 'FACULTY_DAILY_LIMIT'), ((4, 1), 'FACULTY_CONSECUTIVE_LIMIT')])
+def test_solver_enforces_configured_faculty_workload_limits(data, limits, expected_code):
+    faculty_id = str(data['faculty'].pk)
+    assignments = (FacultyAssignment(faculty_id, 'PRIMARY'),)
+    groups = []
+    for index, slot in enumerate(data['slots'][:2]):
+        candidate = Candidate(
+            requirement_id=f'workload-{index}', course_offering_id=str(data['offering'].pk),
+            section_id=f'section-{index}', weekday=0, start_slot_id=str(slot.pk),
+            occupied_slot_ids=(str(slot.pk),), block_length=1, room_id=str(data['room'].pk),
+            faculty=assignments, entry_type='LECTURE',
+        )
+        groups.append({'requirement_id': f'workload-{index}', 'occurrence_count': 1,
+                       'requirements': [], 'candidates': [candidate], 'section_id': f'section-{index}',
+                       'block_length': 1, 'faculty': assignments})
+    model, *_ = _build_occurrence_model(
+        groups, {str(data['room'].pk): 1}, workload_limits={faculty_id: limits},
+        slot_segments=[[str(slot.pk) for slot in data['slots'] if not slot.is_break]],
+    )
+    solver = cp_model.CpSolver()
+    assert solver.Solve(model) == cp_model.INFEASIBLE
+
 def test_validate_apply_is_read_only_and_returns_shared_apply_preflight(api_client,data):
     from django.test.utils import CaptureQueriesContext
     from django.db import connection
@@ -635,6 +673,8 @@ def test_applied_room_exception_is_a_warning_not_a_generation_error(api_client,d
     assert any(item['code']=='ROOM_ELIGIBILITY_EXCEPTION_APPLIED' and item['exception_id']==str(exception.pk) for item in result['diagnostics']['warnings'])
 
 def test_no_candidate_result_is_marked_pre_solver_and_has_no_solver_wall_time(api_client,data):
+    from faculty.models import FacultyWorkloadOverride
+    FacultyWorkloadOverride.objects.create(faculty=data['faculty'],max_daily_periods=6,max_consecutive_periods=6)
     data['offering'].weekly_periods=6;data['offering'].required_block_size=6;data['offering'].default_class_type='PRACTICAL';data['offering'].save()
     result=run_gen(api_client,data,{'mode':'FILL_GAPS','section_ids':[str(data['section'].pk)],'offering_rules':[{'course_offering_id':str(data['offering'].pk),'entry_type':'PRACTICAL','block_size':6,'session_lengths':[6],'faculty':[{'faculty_id':str(data['faculty'].pk)}]}]})
     assert result['solver_status']=='PRECHECK_FAILED'
@@ -1129,10 +1169,12 @@ def test_locked_two_period_official_blocks_keep_exact_times_and_room_occupancy(d
 
 def test_mtcsai2_official_nine_locked_periods_and_three_cloud_occurrences(data):
     from faculty.models import CourseOfferingFaculty
+    from faculty.models import FacultyWorkloadOverride
     from scheduling.services.validation import validate_version
     from scheduling.solver.service import preflight_generation
 
     section = data['section']
+    FacultyWorkloadOverride.objects.create(faculty=data['faculty'],max_daily_periods=4,max_consecutive_periods=3)
     section.name = 'MTCSAI-2'
     section.year = 2
     section.program.code = 'MTECH-CSEAI'

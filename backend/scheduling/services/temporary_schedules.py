@@ -150,6 +150,13 @@ def validate_temporary_plan(plan):
     if not blocks:
         errors.append(issue('NO_BLOCKS', 'Add at least one temporary block.'))
     for block in blocks:
+        if block.room_id and not block.room.active:
+            errors.append(issue('INACTIVE_ROOM', 'Assigned room is no longer active; select an active room before validation or publication.', block=block,
+                room=str(block.room_id)))
+        inactive_faculty = list(block.faculty.filter(active=False).values_list('pk', flat=True))
+        if inactive_faculty:
+            errors.append(issue('INACTIVE_FACULTY', 'Assigned faculty is no longer active; select active faculty before validation or publication.', block=block,
+                faculty=str(inactive_faculty[0])))
         if block.section_id not in section_ids:
             errors.append(issue('SECTION_NOT_IN_PLAN', 'Block section is not selected.', block=block))
         if (block.specific_date is None) == (block.weekday is None):

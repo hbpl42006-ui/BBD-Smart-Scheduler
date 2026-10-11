@@ -22,6 +22,25 @@ class Faculty(models.Model):
         name=f'{self.user.first_name} {self.user.last_name}'.strip() if self.user else ''
         return f"{name or self.initials or self.employee_code} ({self.initials})"
 
+class FacultyWorkloadPolicy(models.Model):
+    """Institution-wide defaults for teaching workload constraints."""
+    max_daily_periods = models.PositiveSmallIntegerField(default=4)
+    max_consecutive_periods = models.PositiveSmallIntegerField(default=2)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'faculty workload policy'
+
+class FacultyWorkloadOverride(models.Model):
+    faculty = models.OneToOneField(Faculty, on_delete=models.CASCADE, related_name='workload_override')
+    enabled = models.BooleanField(default=True)
+    max_daily_periods = models.PositiveSmallIntegerField()
+    max_consecutive_periods = models.PositiveSmallIntegerField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('faculty__name', 'faculty__initials')
+
 class FacultyAvailability(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, related_name='availabilities')

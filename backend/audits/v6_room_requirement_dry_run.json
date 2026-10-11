@@ -1,0 +1,1194 @@
+{
+  "mode": "dry_run",
+  "version_id": "e5ba666e-b867-4d08-8960-7ede38c98222",
+  "workbook": "C:\\Users\\Dell\\Downloads\\BBDU_Timetable_Preview_251_Issues_Reviewed (1).xlsx",
+  "preview_before": {
+    "total": 1692,
+    "valid": 1477,
+    "invalid": 215
+  },
+  "classifications": {
+    "CLEAR_REQUIREMENT_ERROR": 40,
+    "GENUINE_ROOM_MISMATCH": 2,
+    "NEEDS_REVIEW": 6
+  },
+  "offerings_changed": 0,
+  "backup_path": null,
+  "decisions": [
+    {
+      "offering_id": "4ce67cbc-cc3b-4926-b3dc-ab9631bd955d",
+      "section": "CSAI 2G",
+      "course_code": "NAI4302",
+      "course_name": "Artificial Intelligence in Mechanical Engineering Systems",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        763
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "4e3bff6c-460c-4fa5-a4c6-74f63f83e5f4",
+      "section": "CSAI 3A",
+      "course_code": "NAI4551",
+      "course_name": "Data Science with Python Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1042,
+        1043
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "7de0a7b3-2c04-4216-bce3-c321abdf6a80",
+      "section": "CSAI 3B",
+      "course_code": "NAI4551",
+      "course_name": "Data Science with Python Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1061,
+        1062
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "bc07e262-fa52-4d6d-ad80-e11feae6db79",
+      "section": "CSAI 3C",
+      "course_code": "NAI4551",
+      "course_name": "Data Science with Python Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1102,
+        1103
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "0a6bfde0-f870-4010-a7fa-a2a69e424413",
+      "section": "CSAI 3D",
+      "course_code": "NAI4551",
+      "course_name": "Data Science with Python Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1111,
+        1112
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "57767e90-1d00-4a1b-a55f-387e8a61b026",
+      "section": "CSAI 3E",
+      "course_code": "NAI4551",
+      "course_name": "Data Science with Python Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1134,
+        1135
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "7345022b-5d58-49ad-9307-e8a3897a941a",
+      "section": "CSAI 3F",
+      "course_code": "NAI4551",
+      "course_name": "Data Science with Python Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1178,
+        1179
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "a5962aac-411f-4ecb-930f-1f936bb3abcf",
+      "section": "CSAI 3A",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1037,
+        1038
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "4fe1a03c-0ea3-4dc1-ada3-3bcc372eafd4",
+      "section": "CSAI 3B",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1067,
+        1068
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "b06b4ca9-6e53-41d8-984e-723f7e24eeaa",
+      "section": "CSAI 3C",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1099,
+        1100
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "725a02a7-33b2-4266-9145-af53c991c7e5",
+      "section": "CSAI 3D",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1127,
+        1128
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "ad270927-0fdd-4b90-917c-417b525e5592",
+      "section": "CSAI 3E",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1149,
+        1150
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "00b575e0-c69b-4a05-8fb7-81ed1ffcbad1",
+      "section": "CSAI 3F",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1171,
+        1172
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "a593dc54-c0e5-4abc-b359-2d6ea9702db8",
+      "section": "CSAI 3G",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1206,
+        1207
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "084037a1-77b3-4b75-a4ea-fae78da1b563",
+      "section": "CSAI 3H",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "Lab1"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1214,
+        1215
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "6f019bd5-4142-4afe-8034-fdec685331ab",
+      "section": "CSAI 2G",
+      "course_code": "NBS4301",
+      "course_name": "Complex Analysis and Integral Transforms",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        762
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "e70ab6ac-5191-4869-94c5-2924483938d5",
+      "section": "CSAI 2G",
+      "course_code": "NCS4302",
+      "course_name": "Data Structure using \u2018C\u2019",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        770
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "14f98f27-46e7-44b4-9daa-f5119b0a205b",
+      "section": "CSAI 2G",
+      "course_code": "NCS4303",
+      "course_name": "Digital Logic Design",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        769
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "880eae5c-20e8-49f8-8eda-87eed7c77fac",
+      "section": "CS 2F (LE)",
+      "course_code": "NCS4353",
+      "course_name": "Digital Logic Design Lab",
+      "old_requirement": "LAB",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "UGF013"
+      ],
+      "source_room_types": [
+        "CLASSROOM"
+      ],
+      "source_rows": [
+        580
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "classification": "GENUINE_ROOM_MISMATCH",
+      "reason": "The lab requirement is supported by the offering, but the source uses a classroom."
+    },
+    {
+      "offering_id": "76483c2e-4e1f-4b3e-9151-2b74766a9f6d",
+      "section": "CS 3A",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        856,
+        857
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "5b507933-0786-4637-b15c-67cc50a25cf4",
+      "section": "CS 3B",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602",
+        "Lab515"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        881,
+        884,
+        885
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "618debe4-93a2-49e7-a34a-9ddb44a2eaf8",
+      "section": "CS 3C",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        893,
+        894
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "603edd80-7379-4e9b-9eab-0947c9251d11",
+      "section": "CS 3D",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        923,
+        924
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "a2559556-c57a-4549-876b-35304e1e5ece",
+      "section": "CS 3E",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        939,
+        940
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "3e5810f4-ec8b-4538-ad90-19225a87f059",
+      "section": "CS 3F",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        983,
+        984
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "ea8973b4-b1c6-45e2-b0b4-ed61f50434bc",
+      "section": "CS 3H",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1023,
+        1024
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "3d11a8e0-9941-4f18-ae21-1757c7f1d5b1",
+      "section": "CSAI 3B",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1075,
+        1076
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "368e189a-fd09-4d9e-bfb5-2d01dae00a6c",
+      "section": "CSAI 3C",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1090,
+        1091
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "c1398491-0b7f-4cec-8f2e-357169dadd61",
+      "section": "CSAI 3D",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1119,
+        1120
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "dab9bd5b-635d-45f9-8aab-184c4b76a1c3",
+      "section": "CSAI 3E",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1157,
+        1158
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "92f6a4cc-396c-4166-ac91-7c3f9d93cd25",
+      "section": "CSAI 3F",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1163,
+        1164
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "20198977-8602-42c8-b9cb-57990da06374",
+      "section": "CSAI 3G",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1184,
+        1185
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "426d85a1-505b-4229-bd10-740ec83dd61b",
+      "section": "CSAI 3H",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1224,
+        1225
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "e0c15734-e5b4-4061-a143-fbccf0e15fb5",
+      "section": "CS 3D",
+      "course_code": "NCS4555",
+      "course_name": "Computer Graphics Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        932,
+        933
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "b7269de0-83a3-4626-bc48-b2c97dad769d",
+      "section": "CS 3E",
+      "course_code": "NCS4555",
+      "course_name": "Computer Graphics Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "Lab1"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        954,
+        955
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "c0d571e7-6a25-49b4-bd92-22850c5488f1",
+      "section": "CS 3F",
+      "course_code": "NCS4555",
+      "course_name": "Computer Graphics Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        961,
+        962
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "eba29078-1e8a-4435-b838-d73df1b4a0a0",
+      "section": "CS 3H",
+      "course_code": "NCS4555",
+      "course_name": "Computer Graphics Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "COMPUTER_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1012,
+        1013
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "PRACTICAL"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "db669c57-76b8-459b-8e0a-996fd8094131",
+      "section": "CCML-1A",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        408,
+        409
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "95ba4922-f373-4178-864b-c26acdc6a6da",
+      "section": "CSAI-1A",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        154,
+        155
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "7d667208-bb46-4691-bf41-32de3556536c",
+      "section": "CSAI-1B",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        191,
+        192
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "e223969d-c38c-41f6-ae77-7fc9bda74751",
+      "section": "CSAI-1C",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        237,
+        238
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "29de5226-e2b0-45f7-8b21-c967f177fe01",
+      "section": "CSAI-1D",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        251,
+        252
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "49613b09-d7ea-4f56-bea6-d687558a061d",
+      "section": "CSAI-1E",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        276,
+        277
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "9f7924a6-d8a4-4cb6-8c3e-6ffeb8909a5f",
+      "section": "CSAI-1F",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        315,
+        316
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "d932ea18-1d99-430f-9f59-c45116e47c29",
+      "section": "CSAI-1G",
+      "course_code": "RBS5152",
+      "course_name": "Sustainable Chemical Sciences Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": "SUSTAINABLE_CHEMICAL_SCIENCES_LAB",
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "110"
+      ],
+      "source_room_types": [
+        "SUSTAINABLE_CHEMICAL_SCIENCES_LAB"
+      ],
+      "source_rows": [
+        353
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "CLEAR_REQUIREMENT_ERROR",
+      "reason": "Practical lab course repeatedly uses this same canonical lab room type across at least three sections; CLASSROOM contradicts the source and room master."
+    },
+    {
+      "offering_id": "c8e41b72-afd8-432b-a611-235ed39ffaea",
+      "section": "CSAI-1E",
+      "course_code": "RCS5101",
+      "course_name": "Computer Concepts and Programming in C",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "514"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        289
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "7f1fbbf1-0fcd-4640-93a0-fabe78917f8d",
+      "section": "CSAI-1C",
+      "course_code": "REE5101",
+      "course_name": "Electrical Engineering Concepts",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "LGF-011"
+      ],
+      "source_room_types": [
+        "ENGINEERING_GRAPHICS_LAB"
+      ],
+      "source_rows": [
+        216,
+        217
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "823717a2-5086-4510-a47f-52f30d997f32",
+      "section": "CS-1A",
+      "course_code": "RME5101",
+      "course_name": "Engineering Mechanics and Mechatronics",
+      "old_requirement": "MECHANICS LAB",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "501"
+      ],
+      "source_room_types": [
+        "CLASSROOM"
+      ],
+      "source_rows": [
+        6,
+        9,
+        17,
+        24
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "MECHANICS LAB"
+      ],
+      "classification": "GENUINE_ROOM_MISMATCH",
+      "reason": "The lab requirement is supported by the offering, but the source uses a classroom."
+    }
+  ]
+}

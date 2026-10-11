@@ -1,0 +1,2497 @@
+{
+  "version_id": "e5ba666e-b867-4d08-8960-7ede38c98222",
+  "summary": {
+    "total": 1692,
+    "valid": 1540,
+    "invalid": 152
+  },
+  "error_categories": {
+    "FACULTY_CLASH": 39,
+    "FACULTY_NOT_FOUND": 9,
+    "FIXED_ROOM_RESERVED": 3,
+    "MTECH_RESERVED_ROOM_UNAVAILABLE": 32,
+    "ROOM_CLASH": 30,
+    "ROOM_TYPE_MISMATCH": 20,
+    "Room \"CH\" not found.": 18,
+    "Room \"UGF418\" not found.": 1
+  },
+  "room_type_mismatches": [
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NAI4302",
+      "course_name": "Artificial Intelligence in Mechanical Engineering Systems",
+      "section": "CSAI 2G",
+      "program_code": "BTECH-CSE",
+      "year": 2,
+      "offering_id": "4ce67cbc-cc3b-4926-b3dc-ab9631bd955d",
+      "offering_class_type": "LECTURE",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "room_code": "Lab516",
+      "room_type": "LAB",
+      "room_id": "95d57b7d-f733-46ac-8dff-3828ce1d4559",
+      "rows": [
+        763
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "section": "CSAI 3F",
+      "program_code": "BTECH-CSE",
+      "year": 3,
+      "offering_id": "00b575e0-c69b-4a05-8fb7-81ed1ffcbad1",
+      "offering_class_type": "PRACTICAL",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "room_code": "601",
+      "room_type": "COMPUTER_LAB",
+      "room_id": "79321c35-39a4-4612-8e00-48582eaa1bcf",
+      "rows": [
+        1171,
+        1172
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "section": "CSAI 3H",
+      "program_code": "BTECH-CSE",
+      "year": 3,
+      "offering_id": "084037a1-77b3-4b75-a4ea-fae78da1b563",
+      "offering_class_type": "PRACTICAL",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "room_code": "Lab1",
+      "room_type": "COMPUTER_LAB",
+      "room_id": "9d3cc0ce-b418-49c8-83ee-04869b02520c",
+      "rows": [
+        1214,
+        1215
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NBS4301",
+      "course_name": "Complex Analysis and Integral Transforms",
+      "section": "CSAI 2G",
+      "program_code": "BTECH-CSE",
+      "year": 2,
+      "offering_id": "6f019bd5-4142-4afe-8034-fdec685331ab",
+      "offering_class_type": "LECTURE",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "room_code": "Lab516",
+      "room_type": "LAB",
+      "room_id": "95d57b7d-f733-46ac-8dff-3828ce1d4559",
+      "rows": [
+        762
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NCS4302",
+      "course_name": "Data Structure using \u2018C\u2019",
+      "section": "CSAI 2G",
+      "program_code": "BTECH-CSE",
+      "year": 2,
+      "offering_id": "e70ab6ac-5191-4869-94c5-2924483938d5",
+      "offering_class_type": "LECTURE",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "room_code": "Lab516",
+      "room_type": "LAB",
+      "room_id": "95d57b7d-f733-46ac-8dff-3828ce1d4559",
+      "rows": [
+        770
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NCS4303",
+      "course_name": "Digital Logic Design",
+      "section": "CSAI 2G",
+      "program_code": "BTECH-CSE",
+      "year": 2,
+      "offering_id": "14f98f27-46e7-44b4-9daa-f5119b0a205b",
+      "offering_class_type": "LECTURE",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "room_code": "Lab516",
+      "room_type": "LAB",
+      "room_id": "95d57b7d-f733-46ac-8dff-3828ce1d4559",
+      "rows": [
+        769
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NCS4353",
+      "course_name": "Digital Logic Design Lab",
+      "section": "CS 2F (LE)",
+      "program_code": "BTECH-CSE",
+      "year": 2,
+      "offering_id": "880eae5c-20e8-49f8-8eda-87eed7c77fac",
+      "offering_class_type": "PRACTICAL",
+      "requirement": "LAB",
+      "normalized_requirement": "LAB",
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "room_code": "UGF013",
+      "room_type": "CLASSROOM",
+      "room_id": "4f026c27-b8ca-48eb-bda6-b1fe43bbbb1f",
+      "rows": [
+        580
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "section": "CS 3C",
+      "program_code": "BTECH-CSE",
+      "year": 3,
+      "offering_id": "618debe4-93a2-49e7-a34a-9ddb44a2eaf8",
+      "offering_class_type": "PRACTICAL",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB",
+        "PRACTICAL"
+      ],
+      "room_code": "602",
+      "room_type": "COMPUTER_LAB",
+      "room_id": "fbfaefb5-e135-4064-9fc2-9121e6c91c4e",
+      "rows": [
+        893,
+        894
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "NCS4555",
+      "course_name": "Computer Graphics Lab",
+      "section": "CS 3E",
+      "program_code": "BTECH-CSE",
+      "year": 3,
+      "offering_id": "b7269de0-83a3-4626-bc48-b2c97dad769d",
+      "offering_class_type": "PRACTICAL",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB",
+        "PRACTICAL"
+      ],
+      "room_code": "Lab1",
+      "room_type": "COMPUTER_LAB",
+      "room_id": "9d3cc0ce-b418-49c8-83ee-04869b02520c",
+      "rows": [
+        954,
+        955
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "RCS5101",
+      "course_name": "Computer Concepts and Programming in C",
+      "section": "CSAI-1E",
+      "program_code": "BTECH-CSE",
+      "year": 1,
+      "offering_id": "c8e41b72-afd8-432b-a611-235ed39ffaea",
+      "offering_class_type": "LECTURE",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "room_code": "514",
+      "room_type": "COMPUTER_LAB",
+      "room_id": "27da16a8-a538-4d54-a6be-35bd7f71730c",
+      "rows": [
+        289
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "REE5101",
+      "course_name": "Electrical Engineering Concepts",
+      "section": "CSAI-1C",
+      "program_code": "BTECH-CSE",
+      "year": 1,
+      "offering_id": "7f1fbbf1-0fcd-4640-93a0-fabe78917f8d",
+      "offering_class_type": "LECTURE",
+      "requirement": "CLASSROOM",
+      "normalized_requirement": "CLASSROOM",
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "room_code": "LGF-011",
+      "room_type": "ENGINEERING_GRAPHICS_LAB",
+      "room_id": "3754a268-ae09-4b0d-9f7b-fa4f3ce8d275",
+      "rows": [
+        216,
+        217
+      ]
+    },
+    {
+      "classification": "NEEDS_REVIEW",
+      "course_code": "RME5101",
+      "course_name": "Engineering Mechanics and Mechatronics",
+      "section": "CS-1A",
+      "program_code": "BTECH-CSE",
+      "year": 1,
+      "offering_id": "823717a2-5086-4510-a47f-52f30d997f32",
+      "offering_class_type": "PRACTICAL",
+      "requirement": "MECHANICS LAB",
+      "normalized_requirement": "MECHANICS_LAB",
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "MECHANICS LAB"
+      ],
+      "room_code": "501",
+      "room_type": "CLASSROOM",
+      "room_id": "cba062e6-69c5-4a09-8fb8-4c6b0964b78a",
+      "rows": [
+        6,
+        9,
+        17,
+        24
+      ]
+    }
+  ],
+  "room_604_rows": [
+    {
+      "row": 1568,
+      "section": "CSAI 4C",
+      "course_code": "NAI4702",
+      "room": "604"
+    },
+    {
+      "row": 1684,
+      "section": "MTCSAI-2",
+      "course_code": "GE14241",
+      "room": "604"
+    },
+    {
+      "row": 1685,
+      "section": "MTCSAI-2",
+      "course_code": "MAI1301",
+      "room": "604"
+    },
+    {
+      "row": 1686,
+      "section": "MTCSAI-2",
+      "course_code": "GE14241",
+      "room": "604"
+    },
+    {
+      "row": 1687,
+      "section": "MTCSAI-2",
+      "course_code": "MAI1352",
+      "room": "604"
+    },
+    {
+      "row": 1688,
+      "section": "MTCSAI-2",
+      "course_code": "MAI1301",
+      "room": "604"
+    },
+    {
+      "row": 1689,
+      "section": "MTCSAI-2",
+      "course_code": "GE14241",
+      "room": "604"
+    },
+    {
+      "row": 1690,
+      "section": "MTCSAI-2",
+      "course_code": "MAI1351",
+      "room": "604"
+    },
+    {
+      "row": 1691,
+      "section": "MTCSAI-2",
+      "course_code": "MAI1301",
+      "room": "604"
+    },
+    {
+      "row": 1692,
+      "section": "MTCSAI-2",
+      "course_code": "MAI1301",
+      "room": "604"
+    },
+    {
+      "row": 1693,
+      "section": "MTCSAI-2",
+      "course_code": "GE14241",
+      "room": "604"
+    }
+  ],
+  "clash_pairs": [
+    {
+      "category": "FACULTY_CLASH",
+      "row": 392,
+      "conflicting_row": 333,
+      "section": "CCML-1A",
+      "course": "RBS5102",
+      "faculty_code": "8299393508",
+      "room": "520",
+      "day": "Monday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI-1G",
+      "conflicting_course": "RBS5102",
+      "conflicting_faculty_code": "8299393508",
+      "conflicting_room": "518",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 412,
+      "conflicting_row": 322,
+      "section": "CCML-1A",
+      "course": "REE5151",
+      "faculty_code": "9838288885",
+      "room": "LGF-002",
+      "day": "Thursday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI-1F",
+      "conflicting_course": "REE5151",
+      "conflicting_faculty_code": "9415713130",
+      "conflicting_room": "LGF-002",
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 413,
+      "conflicting_row": 323,
+      "section": "CCML-1A",
+      "course": "REE5151",
+      "faculty_code": "9838288885",
+      "room": "LGF-002",
+      "day": "Thursday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI-1F",
+      "conflicting_course": "REE5151",
+      "conflicting_faculty_code": "9415713130",
+      "conflicting_room": "LGF-002",
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 509,
+      "conflicting_row": 71,
+      "section": "CS 2C",
+      "course": "NCS4353",
+      "faculty_code": "8765686839",
+      "room": "LGF001",
+      "day": "Tuesday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS-1C",
+      "conflicting_course": "RME5151",
+      "conflicting_faculty_code": "9451397721",
+      "conflicting_room": "LGF001",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 510,
+      "conflicting_row": 72,
+      "section": "CS 2C",
+      "course": "NCS4353",
+      "faculty_code": "8765686839",
+      "room": "LGF001",
+      "day": "Tuesday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS-1C",
+      "conflicting_course": "RME5151",
+      "conflicting_faculty_code": "9451397721",
+      "conflicting_room": "LGF001",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 599,
+      "conflicting_row": 470,
+      "section": "CS 2F (LE)",
+      "course": "NCS4302",
+      "faculty_code": "9716637696",
+      "room": "401",
+      "day": "Friday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 2A",
+      "conflicting_course": "NBS4301",
+      "conflicting_faculty_code": "9838966466",
+      "conflicting_room": "401",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 605,
+      "conflicting_row": 579,
+      "section": "CSAI 2A",
+      "course": "NCS4302",
+      "faculty_code": "9716637696",
+      "room": "406",
+      "day": "Monday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 2F (LE)",
+      "conflicting_course": "NCS4304",
+      "conflicting_faculty_code": "9554189900",
+      "conflicting_room": "406",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 704,
+      "conflicting_row": 297,
+      "section": "CSAI 2D",
+      "course": "NCS4353",
+      "faculty_code": "8543845587",
+      "room": "LGF001",
+      "day": "Friday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI-1E",
+      "conflicting_course": "RME5152",
+      "conflicting_faculty_code": "9559604636",
+      "conflicting_room": "LGF001",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 705,
+      "conflicting_row": 298,
+      "section": "CSAI 2D",
+      "course": "NCS4353",
+      "faculty_code": "8543845587",
+      "room": "LGF001",
+      "day": "Friday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI-1E",
+      "conflicting_course": "RME5152",
+      "conflicting_faculty_code": "9559604636",
+      "conflicting_room": "LGF001",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 782,
+      "conflicting_row": 644,
+      "section": "CSAI 2G",
+      "course": "NHS4302",
+      "faculty_code": "9670097002",
+      "room": "406",
+      "day": "Wednesday",
+      "time_slot": "16:00-17:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 2B",
+      "conflicting_course": "NCS4303",
+      "conflicting_faculty_code": "7007095972",
+      "conflicting_room": "406",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "16:00-17:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 876,
+      "conflicting_row": 748,
+      "section": "CS 3B",
+      "course": "NCS4502",
+      "faculty_code": "8765686839",
+      "room": "409",
+      "day": "Wednesday",
+      "time_slot": "16:00-17:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 2F",
+      "conflicting_course": "NCS4303",
+      "conflicting_faculty_code": "9643141501",
+      "conflicting_room": "409",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "16:00-17:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 880,
+      "conflicting_row": 647,
+      "section": "CS 3B",
+      "course": "NCS4502",
+      "faculty_code": "8765686839",
+      "room": "409",
+      "day": "Thursday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 2B",
+      "conflicting_course": "NBS4301",
+      "conflicting_faculty_code": "9934011600",
+      "conflicting_room": "409",
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 941,
+      "conflicting_row": 773,
+      "section": "CS 3E",
+      "course": "NCS4505",
+      "faculty_code": "8960141662",
+      "room": "414",
+      "day": "Tuesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 2G",
+      "conflicting_course": "NCS4301",
+      "conflicting_faculty_code": "9335052171",
+      "conflicting_room": "414",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 985,
+      "conflicting_row": 889,
+      "section": "CS 3G",
+      "course": "NCS4502",
+      "faculty_code": "9628649407",
+      "room": "415",
+      "day": "Monday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3C",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303775371",
+      "conflicting_room": "415",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1003,
+      "conflicting_row": 947,
+      "section": "CS 3G",
+      "course": "NCS4504",
+      "faculty_code": "8303584980",
+      "room": "413",
+      "day": "Wednesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3E",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303584980",
+      "conflicting_room": "UGF008",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1005,
+      "conflicting_row": 979,
+      "section": "CS 3G",
+      "course": "NCS4504",
+      "faculty_code": "8303584980",
+      "room": "418",
+      "day": "Friday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3F",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303584980",
+      "conflicting_room": "416",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1008,
+      "conflicting_row": 982,
+      "section": "CS 3G",
+      "course": "NHS4501",
+      "faculty_code": "9807338365",
+      "room": "415",
+      "day": "Friday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3F",
+      "conflicting_course": "NHS4501",
+      "conflicting_faculty_code": "9807338365",
+      "conflicting_room": "413",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1011,
+      "conflicting_row": 986,
+      "section": "CS 3H",
+      "course": "NCS4504",
+      "faculty_code": "9598279673",
+      "room": "416",
+      "day": "Monday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303584980",
+      "conflicting_room": "416",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1012,
+      "conflicting_row": 987,
+      "section": "CS 3H",
+      "course": "NCS4555",
+      "faculty_code": "9140901827",
+      "room": "602",
+      "day": "Monday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4555",
+      "conflicting_faculty_code": "9369321406",
+      "conflicting_room": "602",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1013,
+      "conflicting_row": 988,
+      "section": "CS 3H",
+      "course": "NCS4555",
+      "faculty_code": "9140901827",
+      "room": "602",
+      "day": "Monday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4555",
+      "conflicting_faculty_code": "9369321406",
+      "conflicting_room": "602",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1014,
+      "conflicting_row": 989,
+      "section": "CS 3H",
+      "course": "NHS4501",
+      "faculty_code": "987654321",
+      "room": "416",
+      "day": "Monday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NHS4501",
+      "conflicting_faculty_code": "9807338365",
+      "conflicting_room": "416",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1015,
+      "conflicting_row": 991,
+      "section": "CS 3H",
+      "course": "NCS4503",
+      "faculty_code": "9971290428",
+      "room": "414",
+      "day": "Monday",
+      "time_slot": "16:00-17:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4503",
+      "conflicting_faculty_code": "9971290428",
+      "conflicting_room": "414",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "16:00-17:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1016,
+      "conflicting_row": 992,
+      "section": "CS 3H",
+      "course": "NCS4502",
+      "faculty_code": "9415713130",
+      "room": "417",
+      "day": "Tuesday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4502",
+      "conflicting_faculty_code": "9628649407",
+      "conflicting_room": "417",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1017,
+      "conflicting_row": 993,
+      "section": "CS 3H",
+      "course": "NCS4504",
+      "faculty_code": "9598279673",
+      "room": "417",
+      "day": "Tuesday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303584980",
+      "conflicting_room": "417",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1018,
+      "conflicting_row": 994,
+      "section": "CS 3H",
+      "course": "NVC4501",
+      "faculty_code": "9045129223",
+      "room": "416",
+      "day": "Tuesday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NVC4501",
+      "conflicting_faculty_code": "9045129223",
+      "conflicting_room": "416",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1019,
+      "conflicting_row": 995,
+      "section": "CS 3H",
+      "course": "NCS4505",
+      "faculty_code": "9369321406",
+      "room": "416",
+      "day": "Tuesday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4505",
+      "conflicting_faculty_code": "9369321406",
+      "conflicting_room": "416",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1020,
+      "conflicting_row": 996,
+      "section": "CS 3H",
+      "course": "NCS4554",
+      "faculty_code": "9450968572",
+      "room": "UGF012",
+      "day": "Tuesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4554",
+      "conflicting_faculty_code": "6386581858",
+      "conflicting_room": "UGF012",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1021,
+      "conflicting_row": 997,
+      "section": "CS 3H",
+      "course": "NCS4554",
+      "faculty_code": "9450968572",
+      "room": "UGF012",
+      "day": "Tuesday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4554",
+      "conflicting_faculty_code": "6386581858",
+      "conflicting_room": "UGF012",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1022,
+      "conflicting_row": 998,
+      "section": "CS 3H",
+      "course": "NCS4503",
+      "faculty_code": "9971290428",
+      "room": "417",
+      "day": "Tuesday",
+      "time_slot": "16:00-17:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4503",
+      "conflicting_faculty_code": "9971290428",
+      "conflicting_room": "417",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "16:00-17:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1023,
+      "conflicting_row": 999,
+      "section": "CS 3H",
+      "course": "NCS4553",
+      "faculty_code": "6388735208",
+      "room": "602",
+      "day": "Wednesday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4553",
+      "conflicting_faculty_code": "9971290428",
+      "conflicting_room": "602",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1024,
+      "conflicting_row": 1000,
+      "section": "CS 3H",
+      "course": "NCS4553",
+      "faculty_code": "6388735208",
+      "room": "602",
+      "day": "Wednesday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4553",
+      "conflicting_faculty_code": "9971290428",
+      "conflicting_room": "602",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1025,
+      "conflicting_row": 1001,
+      "section": "CS 3H",
+      "course": "NCS4505",
+      "faculty_code": "9369321406",
+      "room": "415",
+      "day": "Wednesday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4505",
+      "conflicting_faculty_code": "9369321406",
+      "conflicting_room": "415",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1026,
+      "conflicting_row": 1002,
+      "section": "CS 3H",
+      "course": "NCS4502",
+      "faculty_code": "9415713130",
+      "room": "415",
+      "day": "Wednesday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4502",
+      "conflicting_faculty_code": "9628649407",
+      "conflicting_room": "415",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1028,
+      "conflicting_row": 1004,
+      "section": "CS 3H",
+      "course": "NHS4501",
+      "faculty_code": "987654321",
+      "room": "413",
+      "day": "Wednesday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NHS4501",
+      "conflicting_faculty_code": "9807338365",
+      "conflicting_room": "413",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1030,
+      "conflicting_row": 1006,
+      "section": "CS 3H",
+      "course": "NCS4503",
+      "faculty_code": "9971290428",
+      "room": "418",
+      "day": "Friday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4503",
+      "conflicting_faculty_code": "9971290428",
+      "conflicting_room": "418",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1031,
+      "conflicting_row": 1007,
+      "section": "CS 3H",
+      "course": "NCS4505",
+      "faculty_code": "9369321406",
+      "room": "413",
+      "day": "Friday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4505",
+      "conflicting_faculty_code": "9369321406",
+      "conflicting_room": "413",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1033,
+      "conflicting_row": 1009,
+      "section": "CS 3H",
+      "course": "NCS4502",
+      "faculty_code": "9415713130",
+      "room": "415",
+      "day": "Friday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4502",
+      "conflicting_faculty_code": "9628649407",
+      "conflicting_room": "415",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1052,
+      "conflicting_row": 882,
+      "section": "CSAI 3A",
+      "course": "NCS4553",
+      "faculty_code": "9889099364",
+      "room": "Lab1",
+      "day": "Friday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3B",
+      "conflicting_course": "NCS4503",
+      "conflicting_faculty_code": "9889099364",
+      "conflicting_room": "413",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1077,
+      "conflicting_row": 729,
+      "section": "CSAI 3B",
+      "course": "NHS4501",
+      "faculty_code": "6388735208",
+      "room": "406",
+      "day": "Thursday",
+      "time_slot": "16:00-17:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 2E",
+      "conflicting_course": "NAI4302",
+      "conflicting_faculty_code": "9559604636",
+      "conflicting_room": "406",
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "16:00-17:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1166,
+      "conflicting_row": 663,
+      "section": "CSAI 3F",
+      "course": "NAI4552",
+      "faculty_code": "7007095972",
+      "room": "605",
+      "day": "Tuesday",
+      "time_slot": "09:00-10:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 2C (LE)",
+      "conflicting_course": "NCS4353",
+      "conflicting_faculty_code": "7007095972",
+      "conflicting_room": "LGF001",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "09:00-10:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1201,
+      "conflicting_row": 1150,
+      "section": "CSAI 3G",
+      "course": "NCS4503",
+      "faculty_code": "9453697484",
+      "room": "605",
+      "day": "Thursday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 3E",
+      "conflicting_course": "NAI4552",
+      "conflicting_faculty_code": "9453697484",
+      "conflicting_room": "601",
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1207,
+      "conflicting_row": 1181,
+      "section": "CSAI 3G",
+      "course": "NAI4552",
+      "faculty_code": "9453697484",
+      "room": "601",
+      "day": "Friday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 3F",
+      "conflicting_course": "NCS4503",
+      "conflicting_faculty_code": "9453697484",
+      "conflicting_room": "605",
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1211,
+      "conflicting_row": 1161,
+      "section": "CSAI 3H",
+      "course": "NCS4503",
+      "faculty_code": "9453697484",
+      "room": "605",
+      "day": "Monday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 3F",
+      "conflicting_course": "NCS4503",
+      "conflicting_faculty_code": "9453697484",
+      "conflicting_room": "418",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1264,
+      "conflicting_row": 1213,
+      "section": "IOTBC 3A",
+      "course": "NCS4504",
+      "faculty_code": "6386581858",
+      "room": "605",
+      "day": "Monday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 3H",
+      "conflicting_course": "NHS4501",
+      "conflicting_faculty_code": "1122334457",
+      "conflicting_room": "605",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1270,
+      "conflicting_row": 1239,
+      "section": "IOTBC 3A",
+      "course": "NITBC4501",
+      "faculty_code": "77395 89647",
+      "room": "605",
+      "day": "Tuesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CCML 3A",
+      "conflicting_course": "NCCML4552",
+      "conflicting_faculty_code": "77395 89647",
+      "conflicting_room": "Lab1",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1271,
+      "conflicting_row": 997,
+      "section": "IOTBC 3A",
+      "course": "NCS4504",
+      "faculty_code": "6386581858",
+      "room": "605",
+      "day": "Tuesday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4554",
+      "conflicting_faculty_code": "6386581858",
+      "conflicting_room": "UGF012",
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1277,
+      "conflicting_row": 1045,
+      "section": "IOTBC 3A",
+      "course": "NITBC4553",
+      "faculty_code": "77395 89647",
+      "room": "418",
+      "day": "Wednesday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CSAI 3A",
+      "conflicting_course": "NAI4554",
+      "conflicting_faculty_code": "9554189900",
+      "conflicting_room": "418",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1414,
+      "conflicting_row": 1395,
+      "section": "CS 4G",
+      "course": "NCS4701",
+      "faculty_code": "6394771035",
+      "room": null,
+      "day": "Wednesday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4F",
+      "conflicting_course": "NCS4701",
+      "conflicting_faculty_code": "6394771035",
+      "conflicting_room": null,
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1415,
+      "conflicting_row": 1396,
+      "section": "CS 4G",
+      "course": "NCS4751",
+      "faculty_code": "6394771035",
+      "room": null,
+      "day": "Wednesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4F",
+      "conflicting_course": "NCS4751",
+      "conflicting_faculty_code": "6394771035",
+      "conflicting_room": null,
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1416,
+      "conflicting_row": 1397,
+      "section": "CS 4G",
+      "course": "NCS4751",
+      "faculty_code": "6394771035",
+      "room": null,
+      "day": "Wednesday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4F",
+      "conflicting_course": "NCS4751",
+      "conflicting_faculty_code": "6394771035",
+      "conflicting_room": null,
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1421,
+      "conflicting_row": 1401,
+      "section": "CS 4G",
+      "course": "NCS4701",
+      "faculty_code": "6394771035",
+      "room": null,
+      "day": "Friday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4F",
+      "conflicting_course": "NCS4701",
+      "conflicting_faculty_code": "6394771035",
+      "conflicting_room": null,
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1424,
+      "conflicting_row": 1405,
+      "section": "CS 4H",
+      "course": "OE43101",
+      "faculty_code": "7800909592",
+      "room": null,
+      "day": "Monday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4G",
+      "conflicting_course": "OE43101",
+      "conflicting_faculty_code": "7800909592",
+      "conflicting_room": null,
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "ROOM_CLASH",
+      "row": 1434,
+      "conflicting_row": 947,
+      "section": "CS 4H",
+      "course": "NCS4753",
+      "faculty_code": "9170002153",
+      "room": "UGF008",
+      "day": "Wednesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3E",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303584980",
+      "conflicting_room": "UGF008",
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1439,
+      "conflicting_row": 857,
+      "section": "CS 4H",
+      "course": "NCS4701",
+      "faculty_code": "9305026831",
+      "room": null,
+      "day": "Thursday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 3A",
+      "conflicting_course": "NCS4553",
+      "conflicting_faculty_code": "9305026831",
+      "conflicting_room": "602",
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1442,
+      "conflicting_row": 1423,
+      "section": "CS 4H",
+      "course": "OE43101",
+      "faculty_code": "7800909592",
+      "room": null,
+      "day": "Friday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4G",
+      "conflicting_course": "OE43101",
+      "conflicting_faculty_code": "7800909592",
+      "conflicting_room": null,
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1483,
+      "conflicting_row": 1403,
+      "section": "CS 4J",
+      "course": "OE43101",
+      "faculty_code": "8795003181",
+      "room": null,
+      "day": "Friday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4F",
+      "conflicting_course": "OE43101",
+      "conflicting_faculty_code": "8795003181",
+      "conflicting_room": null,
+      "conflicting_day": "Friday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1487,
+      "conflicting_row": 1471,
+      "section": "CS 4K",
+      "course": "NCS4701",
+      "faculty_code": "7905357382",
+      "room": null,
+      "day": "Tuesday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4J",
+      "conflicting_course": "NCS4701",
+      "conflicting_faculty_code": "7905357382",
+      "conflicting_room": null,
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1488,
+      "conflicting_row": 1449,
+      "section": "CS 4K",
+      "course": "NPEC43232",
+      "faculty_code": "7497056805",
+      "room": null,
+      "day": "Tuesday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4I",
+      "conflicting_course": "NPEC43232",
+      "conflicting_faculty_code": "7497056805",
+      "conflicting_room": null,
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1491,
+      "conflicting_row": 1476,
+      "section": "CS 4K",
+      "course": "NCS4701",
+      "faculty_code": "7905357382",
+      "room": null,
+      "day": "Wednesday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4J",
+      "conflicting_course": "NCS4701",
+      "conflicting_faculty_code": "7905357382",
+      "conflicting_room": null,
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1497,
+      "conflicting_row": 1479,
+      "section": "CS 4K",
+      "course": "NCS4751",
+      "faculty_code": "7905357382",
+      "room": null,
+      "day": "Thursday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4J",
+      "conflicting_course": "NCS4751",
+      "conflicting_faculty_code": "7905357382",
+      "conflicting_room": null,
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1498,
+      "conflicting_row": 1480,
+      "section": "CS 4K",
+      "course": "NCS4751",
+      "faculty_code": "7905357382",
+      "room": null,
+      "day": "Thursday",
+      "time_slot": "15:00-16:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4J",
+      "conflicting_course": "NCS4751",
+      "conflicting_faculty_code": "7905357382",
+      "conflicting_room": null,
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "15:00-16:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1504,
+      "conflicting_row": 1212,
+      "section": "CS 4L",
+      "course": "NCS4701",
+      "faculty_code": "9651281359",
+      "room": null,
+      "day": "Monday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CSAI 3H",
+      "conflicting_course": "NAI4501",
+      "conflicting_faculty_code": "9651281359",
+      "conflicting_room": "605",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1517,
+      "conflicting_row": 1453,
+      "section": "CS 4L",
+      "course": "OE43101",
+      "faculty_code": "8795003181",
+      "room": null,
+      "day": "Wednesday",
+      "time_slot": "14:00-15:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4I",
+      "conflicting_course": "OE43101",
+      "conflicting_faculty_code": "8795003181",
+      "conflicting_room": null,
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "14:00-15:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1520,
+      "conflicting_row": 1399,
+      "section": "CS 4L",
+      "course": "OE43101",
+      "faculty_code": "8795003181",
+      "room": null,
+      "day": "Thursday",
+      "time_slot": "12:00-13:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 4F",
+      "conflicting_course": "OE43101",
+      "conflicting_faculty_code": "8795003181",
+      "conflicting_room": null,
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "12:00-13:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1565,
+      "conflicting_row": 987,
+      "section": "CSAI 4C",
+      "course": "NPEC43931",
+      "faculty_code": "9369321406",
+      "room": null,
+      "day": "Monday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4555",
+      "conflicting_faculty_code": "9369321406",
+      "conflicting_room": "602",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1594,
+      "conflicting_row": 1529,
+      "section": "CSAI 4D",
+      "course": "NPEC43931",
+      "faculty_code": "7307364843",
+      "room": null,
+      "day": "Wednesday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CSAI 4A",
+      "conflicting_course": "NPEC43931",
+      "conflicting_faculty_code": "7307364843",
+      "conflicting_room": null,
+      "conflicting_day": "Wednesday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1625,
+      "conflicting_row": 986,
+      "section": "CSAI 4F",
+      "course": "NAI4702",
+      "faculty_code": "8303584980",
+      "room": "606",
+      "day": "Monday",
+      "time_slot": "10:00-11:00",
+      "delivery_mode": "OFFLINE",
+      "conflicting_section": "CS 3G",
+      "conflicting_course": "NCS4504",
+      "conflicting_faculty_code": "8303584980",
+      "conflicting_room": "416",
+      "conflicting_day": "Monday",
+      "conflicting_time_slot": "10:00-11:00",
+      "conflicting_delivery_mode": "OFFLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1633,
+      "conflicting_row": 1611,
+      "section": "CSAI 4F",
+      "course": "OE43302",
+      "faculty_code": "9839583399",
+      "room": null,
+      "day": "Tuesday",
+      "time_slot": "16:00-17:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CSAI 4E",
+      "conflicting_course": "OE43302",
+      "conflicting_faculty_code": "9839583399",
+      "conflicting_room": null,
+      "conflicting_day": "Tuesday",
+      "conflicting_time_slot": "16:00-17:00",
+      "conflicting_delivery_mode": "ONLINE"
+    },
+    {
+      "category": "FACULTY_CLASH",
+      "row": 1638,
+      "conflicting_row": 1599,
+      "section": "CSAI 4F",
+      "course": "NPEC43931",
+      "faculty_code": "7307364843",
+      "room": null,
+      "day": "Thursday",
+      "time_slot": "11:00-12:00",
+      "delivery_mode": "ONLINE",
+      "conflicting_section": "CSAI 4D",
+      "conflicting_course": "NPEC43931",
+      "conflicting_faculty_code": "7307364843",
+      "conflicting_room": null,
+      "conflicting_day": "Thursday",
+      "conflicting_time_slot": "11:00-12:00",
+      "conflicting_delivery_mode": "ONLINE"
+    }
+  ],
+  "invalid_by_category": {
+    "FACULTY_CLASH": [
+      {
+        "row": 392,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 333
+      },
+      {
+        "row": 1003,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 947
+      },
+      {
+        "row": 1005,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 979
+      },
+      {
+        "row": 1008,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 982
+      },
+      {
+        "row": 1015,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 991
+      },
+      {
+        "row": 1018,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 994
+      },
+      {
+        "row": 1019,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 995
+      },
+      {
+        "row": 1022,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 998
+      },
+      {
+        "row": 1025,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1001
+      },
+      {
+        "row": 1030,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1006
+      },
+      {
+        "row": 1031,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1007
+      },
+      {
+        "row": 1052,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 882
+      },
+      {
+        "row": 1166,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 663
+      },
+      {
+        "row": 1201,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1150
+      },
+      {
+        "row": 1207,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1181
+      },
+      {
+        "row": 1211,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1161
+      },
+      {
+        "row": 1270,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1239
+      },
+      {
+        "row": 1271,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 997
+      },
+      {
+        "row": 1414,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1395
+      },
+      {
+        "row": 1415,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1396
+      },
+      {
+        "row": 1416,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1397
+      },
+      {
+        "row": 1421,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1401
+      },
+      {
+        "row": 1424,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1405
+      },
+      {
+        "row": 1439,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 857
+      },
+      {
+        "row": 1442,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1423
+      },
+      {
+        "row": 1483,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1403
+      },
+      {
+        "row": 1487,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1471
+      },
+      {
+        "row": 1488,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1449
+      },
+      {
+        "row": 1491,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1476
+      },
+      {
+        "row": 1497,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1479
+      },
+      {
+        "row": 1498,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1480
+      },
+      {
+        "row": 1504,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1212
+      },
+      {
+        "row": 1517,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1453
+      },
+      {
+        "row": 1520,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1399
+      },
+      {
+        "row": 1565,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 987
+      },
+      {
+        "row": 1594,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1529
+      },
+      {
+        "row": 1625,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 986
+      },
+      {
+        "row": 1633,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1611
+      },
+      {
+        "row": 1638,
+        "message": "Faculty is already occupied in this period.",
+        "code": "FACULTY_CLASH",
+        "conflicting_row": 1599
+      }
+    ],
+    "FACULTY_NOT_FOUND": [
+      {
+        "row": 591,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1099,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1100,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1242,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1248,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1256,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1262,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1266,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      },
+      {
+        "row": 1273,
+        "message": "Faculty with Employee Code  was not found.",
+        "code": "FACULTY_NOT_FOUND"
+      }
+    ],
+    "FIXED_ROOM_RESERVED": [
+      {
+        "row": 837,
+        "message": "Room 516 is reserved for its configured fixed-room rule.",
+        "code": "FIXED_ROOM_RESERVED"
+      },
+      {
+        "row": 838,
+        "message": "Room 516 is reserved for its configured fixed-room rule.",
+        "code": "FIXED_ROOM_RESERVED"
+      },
+      {
+        "row": 1568,
+        "message": "Room 604 is reserved for its configured fixed-room rule.",
+        "code": "FIXED_ROOM_RESERVED"
+      }
+    ],
+    "MTECH_RESERVED_ROOM_UNAVAILABLE": [
+      {
+        "row": 1662,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1663,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1664,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1665,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1666,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1667,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1668,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1669,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1670,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1671,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1672,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1673,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1674,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1675,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1676,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1677,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1678,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1679,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1680,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1681,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1682,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1683,
+        "message": "Reserved Room 516 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1684,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1685,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1686,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1687,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1688,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1689,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1690,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1691,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1692,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      },
+      {
+        "row": 1693,
+        "message": "Reserved Room 604 is not configured for this program and year.",
+        "code": "MTECH_RESERVED_ROOM_UNAVAILABLE"
+      }
+    ],
+    "ROOM_CLASH": [
+      {
+        "row": 412,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 322
+      },
+      {
+        "row": 413,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 323
+      },
+      {
+        "row": 509,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 71
+      },
+      {
+        "row": 510,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 72
+      },
+      {
+        "row": 599,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 470
+      },
+      {
+        "row": 605,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 579
+      },
+      {
+        "row": 704,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 297
+      },
+      {
+        "row": 705,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 298
+      },
+      {
+        "row": 782,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 644
+      },
+      {
+        "row": 876,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 748
+      },
+      {
+        "row": 880,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 647
+      },
+      {
+        "row": 941,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 773
+      },
+      {
+        "row": 985,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 889
+      },
+      {
+        "row": 1011,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 986
+      },
+      {
+        "row": 1012,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 987
+      },
+      {
+        "row": 1013,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 988
+      },
+      {
+        "row": 1014,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 989
+      },
+      {
+        "row": 1016,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 992
+      },
+      {
+        "row": 1017,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 993
+      },
+      {
+        "row": 1020,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 996
+      },
+      {
+        "row": 1021,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 997
+      },
+      {
+        "row": 1023,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 999
+      },
+      {
+        "row": 1024,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 1000
+      },
+      {
+        "row": 1026,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 1002
+      },
+      {
+        "row": 1028,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 1004
+      },
+      {
+        "row": 1033,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 1009
+      },
+      {
+        "row": 1077,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 729
+      },
+      {
+        "row": 1264,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 1213
+      },
+      {
+        "row": 1277,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 1045
+      },
+      {
+        "row": 1434,
+        "message": "Room is already occupied in this period.",
+        "code": "ROOM_CLASH",
+        "conflicting_row": 947
+      }
+    ],
+    "ROOM_TYPE_MISMATCH": [
+      {
+        "row": 6,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 9,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 17,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 24,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 216,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 217,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 289,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 580,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 762,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 763,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 769,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 770,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 893,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 894,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 954,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 955,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 1171,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 1172,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 1214,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      },
+      {
+        "row": 1215,
+        "message": "Room type does not match course requirement.",
+        "code": "ROOM_TYPE_MISMATCH"
+      }
+    ],
+    "Room \"CH\" not found.": [
+      {
+        "row": 629,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 630,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 652,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 653,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 681,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 682,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 700,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 701,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 714,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 715,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 751,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 752,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 771,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 772,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 790,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 791,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 828,
+        "message": "Room \"CH\" not found."
+      },
+      {
+        "row": 829,
+        "message": "Room \"CH\" not found."
+      }
+    ],
+    "Room \"UGF418\" not found.": [
+      {
+        "row": 1570,
+        "message": "Room \"UGF418\" not found."
+      }
+    ]
+  }
+}

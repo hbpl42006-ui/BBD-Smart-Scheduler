@@ -63,6 +63,21 @@ class MasterDataExportTests(TestCase):
         self.assertTrue(any(row[0] == 'EXP101' for row in rows[1:]))
         self.assertFalse(any(row[0] == 'OLD101' for row in rows[1:]))
 
+    def test_course_offering_course_options_are_all_active_courses_unpaginated(self):
+        for index in range(12):
+            Course.objects.create(code=f'OPT{index:03d}', name=f'Option Course {index:03d}', short_code=f'O{index:03d}', credit=3)
+        expected = Course.objects.filter(active=True).count()
+        response = self.client.get('/api/course-offerings/course-options/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+        self.assertEqual(len(response.data), expected)
+        self.assertEqual([row['code'] for row in response.data], sorted(row['code'] for row in response.data))
+        self.assertTrue(all(set(row) == {'id', 'code', 'name', 'credit'} for row in response.data))
+        self.assertEqual(response.data[0]['code'], 'EXP101')
+        self.assertNotIn('OLD101', [row['code'] for row in response.data])
+        filtered = self.client.get('/api/course-offerings/course-options/', {'search': 'OPT011'})
+        self.assertEqual([row['code'] for row in filtered.data], ['OPT011'])
+
     def test_all_five_resources_have_export_actions(self):
         for endpoint in ('faculty', 'sections', 'rooms', 'courses', 'course-offerings'):
             with self.subTest(endpoint=endpoint):

@@ -78,9 +78,14 @@ def _pattern_blocks(plan, patterns, sections, version):
         else:
             raise DRFValidationError({'patterns':f'{prefix}: mode must be weekday or date.'})
         room_id=pattern.get('room_id') or pattern.get('room') or None
+        room_assignment=pattern.get('room_assignment','LATER')
+        if room_assignment not in ('NONE','SHARED','LATER'):
+            raise DRFValidationError({'room_assignment':'Choose NONE, SHARED, or LATER room assignment.'})
+        if room_assignment=='SHARED' and not room_id:
+            raise DRFValidationError({'room':'A valid room is required for shared room assignment.'})
         if room_id and len(sections)>1:
             raise DRFValidationError({'room':'A shared room cannot be assigned to simultaneous section blocks. Choose no room / assign later, or select one section.'})
-        try: room=Room.objects.get(pk=room_id) if room_id else None
+        try: room=Room.objects.get(pk=room_id,active=True) if room_id else None
         except (Room.DoesNotExist,ValidationError,ValueError,TypeError):
             raise DRFValidationError({'room':'Choose a valid room.'}) from None
         delivery=pattern.get('delivery_mode','OFFLINE')
@@ -89,7 +94,7 @@ def _pattern_blocks(plan, patterns, sections, version):
         if delivery=='ONLINE' and room:
             raise DRFValidationError({'room':'Online patterns cannot reserve a physical room.'})
         faculty_ids=pattern.get('faculty',[])
-        if not isinstance(faculty_ids,list) or Faculty.objects.filter(pk__in=faculty_ids).count()!=len(set(map(str,faculty_ids))):
+        if not isinstance(faculty_ids,list) or Faculty.objects.filter(pk__in=faculty_ids,active=True).count()!=len(set(map(str,faculty_ids))):
             raise DRFValidationError({'faculty':'Choose valid faculty records.'})
         for section in sections:
             for recurrence in recurrences:
@@ -224,9 +229,9 @@ class TemporaryPlanBlocks(APIView):
             if section.semester_id != plan.base_timetable_version.timetable.semester_id:
                 return Response({'detail':'Block section belongs to another timetable semester.'},status=400)
             slot=TimeSlot.objects.get(pk=request.data['start_slot'])
-            room=Room.objects.get(pk=request.data['room']) if request.data.get('room') else None
+            room=Room.objects.get(pk=request.data['room'],active=True) if request.data.get('room') else None
             faculty_ids=request.data.get('faculty', [])
-            if not isinstance(faculty_ids,list) or Faculty.objects.filter(pk__in=faculty_ids).count()!=len(set(faculty_ids)):
+            if not isinstance(faculty_ids,list) or Faculty.objects.filter(pk__in=faculty_ids,active=True).count()!=len(set(faculty_ids)):
                 return Response({'detail':'Select valid faculty records.'},status=400)
             if request.data.get('specific_date') and request.data.get('weekday') is not None:
                 return Response({'detail':'Choose a date or a weekday, not both.'},status=400)

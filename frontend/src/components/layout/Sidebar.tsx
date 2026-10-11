@@ -51,6 +51,7 @@ const navItems = [
     { title: 'Faculty Availability', url: '/faculty-arrangements/availability' },
   ] },
   { title: 'Faculty Workload', url: '/faculty-workload', icon: CalendarDays, group: 'Scheduling' },
+  { title: 'Workload Policies', url: '/faculty-workload-policies', icon: Settings, group: 'Scheduling' },
   { title: 'Reports', url: '/reports', icon: FileText, group: 'Reporting' },
   { title: 'Notifications', url: '/notifications', icon: Bell, group: 'System' },
   { title: 'Data Reset', url: '/system/data-reset', icon: Settings, group: 'System' },
@@ -61,7 +62,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const [role, setRole] = React.useState<Role>();
   React.useEffect(() => { me().then(user => setRole(user.role as Role)).catch(() => setRole(undefined)); }, []);
-  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' && item.url !== '/my-workload' || role === 'FACULTY') && (item.url !== '/faculty-workload' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/section-timetables' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/temporary-schedules' || ['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR'].includes(role ?? '')) && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
+  const visibleItems = navItems.filter(item => (item.url !== '/my-timetable' && item.url !== '/my-workload' || role === 'FACULTY') && (item.url !== '/faculty-workload' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/faculty-workload-policies' || ['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR'].includes(role ?? '')) && (item.url !== '/section-timetables' || ['SUPER_ADMIN', 'HOD_OR_DEAN_APPROVER'].includes(role ?? '')) && (item.url !== '/temporary-schedules' || ['SUPER_ADMIN','ACADEMIC_ADMIN','TIMETABLE_COORDINATOR'].includes(role ?? '')) && (item.url !== '/approvals' || canReviewTimetables(role)) && (item.url !== '/system/data-reset' || role === 'SUPER_ADMIN'));
 
   return (
     <Sidebar className="no-print">

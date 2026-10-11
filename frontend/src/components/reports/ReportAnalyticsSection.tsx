@@ -91,11 +91,14 @@ function workload(rows: Row[]) {
       { label: 'Total Teaching Periods', value: total },
       { label: 'Average Teaching Periods', value: rows.length ? Math.round(total / rows.length) : 0 },
       { label: 'Maximum Teaching Load', value: values.length ? Math.max(...values) : 0 },
+      { label: 'Daily Limit Violations', value: rows.filter(row => row.daily_limit_exceeded === true).length },
+      { label: 'Consecutive Limit Violations', value: rows.filter(row => row.consecutive_limit_exceeded === true).length },
     ],
     charts: [
       ['Faculty vs Teaching Periods', rows.map(row => ({ label: String(row.faculty_name ?? ''), value: numberValue(row.total_scheduled_periods) }))],
       ['Courses per Faculty', grouped(rows, 'faculty_name', 'distinct_courses')],
       ['Sections per Faculty', grouped(rows, 'faculty_name', 'distinct_sections')],
+      ['Highest Daily Periods by Faculty', rows.map(row => ({ label: String(row.faculty_name ?? ''), value: numberValue(row.highest_daily_load), suffix: ` / ${numberValue(row.max_daily_periods)}` }))],
     ] as [string, Bar[]][],
   };
 }

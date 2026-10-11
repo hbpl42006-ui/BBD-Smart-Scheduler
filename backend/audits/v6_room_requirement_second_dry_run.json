@@ -1,0 +1,357 @@
+{
+  "mode": "dry_run",
+  "version_id": "e5ba666e-b867-4d08-8960-7ede38c98222",
+  "workbook": "C:\\Users\\Dell\\Downloads\\BBDU_Timetable_Preview_251_Issues_Reviewed (1).xlsx",
+  "preview_before": {
+    "total": 1692,
+    "valid": 1540,
+    "invalid": 152
+  },
+  "classifications": {
+    "GENUINE_ROOM_MISMATCH": 2,
+    "NEEDS_REVIEW": 10
+  },
+  "offerings_changed": 0,
+  "backup_path": null,
+  "decisions": [
+    {
+      "offering_id": "4ce67cbc-cc3b-4926-b3dc-ab9631bd955d",
+      "section": "CSAI 2G",
+      "course_code": "NAI4302",
+      "course_name": "Artificial Intelligence in Mechanical Engineering Systems",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        763
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "00b575e0-c69b-4a05-8fb7-81ed1ffcbad1",
+      "section": "CSAI 3F",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "601"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1171,
+        1172
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "084037a1-77b3-4b75-a4ea-fae78da1b563",
+      "section": "CSAI 3H",
+      "course_code": "NAI4552",
+      "course_name": "Artificial Neural Network Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "Lab1"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        1214,
+        1215
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "6f019bd5-4142-4afe-8034-fdec685331ab",
+      "section": "CSAI 2G",
+      "course_code": "NBS4301",
+      "course_name": "Complex Analysis and Integral Transforms",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        762
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "e70ab6ac-5191-4869-94c5-2924483938d5",
+      "section": "CSAI 2G",
+      "course_code": "NCS4302",
+      "course_name": "Data Structure using \u2018C\u2019",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        770
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "14f98f27-46e7-44b4-9daa-f5119b0a205b",
+      "section": "CSAI 2G",
+      "course_code": "NCS4303",
+      "course_name": "Digital Logic Design",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "Lab516"
+      ],
+      "source_room_types": [
+        "LAB"
+      ],
+      "source_rows": [
+        769
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "880eae5c-20e8-49f8-8eda-87eed7c77fac",
+      "section": "CS 2F (LE)",
+      "course_code": "NCS4353",
+      "course_name": "Digital Logic Design Lab",
+      "old_requirement": "LAB",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "UGF013"
+      ],
+      "source_room_types": [
+        "CLASSROOM"
+      ],
+      "source_rows": [
+        580
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "ELECTRICAL_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "LAB"
+      ],
+      "classification": "GENUINE_ROOM_MISMATCH",
+      "reason": "The lab requirement is supported by the offering, but the source uses a classroom."
+    },
+    {
+      "offering_id": "618debe4-93a2-49e7-a34a-9ddb44a2eaf8",
+      "section": "CS 3C",
+      "course_code": "NCS4553",
+      "course_name": "Computer Networks Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "602"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        893,
+        894
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB",
+        "PRACTICAL"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "b7269de0-83a3-4626-bc48-b2c97dad769d",
+      "section": "CS 3E",
+      "course_code": "NCS4555",
+      "course_name": "Computer Graphics Lab",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "Lab1"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        954,
+        955
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "COMPUTER_LAB",
+        "PRACTICAL"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "c8e41b72-afd8-432b-a611-235ed39ffaea",
+      "section": "CSAI-1E",
+      "course_code": "RCS5101",
+      "course_name": "Computer Concepts and Programming in C",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "514"
+      ],
+      "source_room_types": [
+        "COMPUTER_LAB"
+      ],
+      "source_rows": [
+        289
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "COMPUTER_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "7f1fbbf1-0fcd-4640-93a0-fabe78917f8d",
+      "section": "CSAI-1C",
+      "course_code": "REE5101",
+      "course_name": "Electrical Engineering Concepts",
+      "old_requirement": "CLASSROOM",
+      "proposed_requirement": null,
+      "class_type": "LECTURE",
+      "source_rooms": [
+        "LGF-011"
+      ],
+      "source_room_types": [
+        "ENGINEERING_GRAPHICS_LAB"
+      ],
+      "source_rows": [
+        216,
+        217
+      ],
+      "all_source_room_types": [
+        "CLASSROOM",
+        "ENGINEERING_GRAPHICS_LAB"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM"
+      ],
+      "classification": "NEEDS_REVIEW",
+      "reason": "Source and master evidence do not justify an automatic requirement change."
+    },
+    {
+      "offering_id": "823717a2-5086-4510-a47f-52f30d997f32",
+      "section": "CS-1A",
+      "course_code": "RME5101",
+      "course_name": "Engineering Mechanics and Mechatronics",
+      "old_requirement": "MECHANICS LAB",
+      "proposed_requirement": null,
+      "class_type": "PRACTICAL",
+      "source_rooms": [
+        "501"
+      ],
+      "source_room_types": [
+        "CLASSROOM"
+      ],
+      "source_rows": [
+        6,
+        9,
+        17,
+        24
+      ],
+      "all_source_room_types": [
+        "CLASSROOM"
+      ],
+      "equivalent_offering_requirements": [
+        "CLASSROOM",
+        "MECHANICS LAB"
+      ],
+      "classification": "GENUINE_ROOM_MISMATCH",
+      "reason": "The lab requirement is supported by the offering, but the source uses a classroom."
+    }
+  ]
+}

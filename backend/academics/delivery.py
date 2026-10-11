@@ -1,5 +1,12 @@
 """Resolve section delivery rules in their academic-period scope."""
 
+YEAR4_IMPORT_ROOM_DELIVERY_NOTE = 'Imported Year-4 room-based delivery'
+
+
+def is_year4_room_based_import(entry):
+    return (entry.section.year == 4
+            and entry.note == YEAR4_IMPORT_ROOM_DELIVERY_NOTE)
+
 
 def get_section_delivery_policy_record(section, semester=None):
     """Return the active period policy, if one applies to this section."""
