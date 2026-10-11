@@ -138,3 +138,59 @@ def test_import_rejects_ambiguous_activity_instead_of_selecting_first(client, da
         {'file': SimpleUploadedFile('ambiguous.csv', body, content_type='text/csv')}, format='multipart')
     assert response.status_code == 200 and response.data['invalid'] == 1
     assert response.data['errors'][0]['code'] == 'COURSE_OFFERING_ACTIVITY_MISMATCH'
+
+
+def test_import_rejects_incomplete_practical_block(client, data):
+    data['offering'].default_class_type = 'PRACTICAL'
+    data['offering'].required_block_size = 2
+    data['offering'].room_type_requirement = 'CLASSROOM'
+    data['offering'].save(update_fields=['default_class_type', 'required_block_size', 'room_type_requirement'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'], faculty=data['faculty'])
+    body = b'Section,Course Code,Employee Code,Day,Time Slot,Room No.,Entry Type\nA,CS101,F001,Monday,9:00-10:00,R101,PRACTICAL\n'
+
+    response = client.post(
+        f'/api/versions/{data["version"].pk}/imports/timetable/preview/',
+        {'file': SimpleUploadedFile('incomplete.csv', body, content_type='text/csv')}, format='multipart')
+
+    assert response.status_code == 200
+    assert response.data['valid'] == 0 and response.data['invalid'] == 1
+    assert response.data['errors'][0]['code'] == 'PRACTICAL_BLOCK_INCOMPLETE'
+
+
+def test_import_accepts_row_wise_practical_when_periods_form_same_room_block(client, data):
+    data['offering'].default_class_type = 'PRACTICAL'
+    data['offering'].required_block_size = 2
+    data['offering'].room_type_requirement = 'CLASSROOM'
+    data['offering'].save(update_fields=['default_class_type', 'required_block_size', 'room_type_requirement'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'], faculty=data['faculty'])
+    body = (b'Section,Course Code,Employee Code,Day,Time Slot,Room No.,Entry Type\n'
+            b'A,CS101,F001,Monday,9:00-10:00,R101,PRACTICAL\n'
+            b'A,CS101,F001,Monday,10:00-11:00,R101,PRACTICAL\n')
+
+    response = client.post(
+        f'/api/versions/{data["version"].pk}/imports/timetable/preview/',
+        {'file': SimpleUploadedFile('complete.csv', body, content_type='text/csv')}, format='multipart')
+
+    assert response.status_code == 200
+    assert response.data['valid'] == 2 and response.data['invalid'] == 0
+
+
+def test_import_rejects_adjacent_practical_periods_split_across_rooms(client, data):
+    other_room = Room.objects.create(
+        code='R102', building='Main', floor='1', capacity=60, room_type='CLASSROOM')
+    data['offering'].default_class_type = 'PRACTICAL'
+    data['offering'].required_block_size = 2
+    data['offering'].room_type_requirement = 'CLASSROOM'
+    data['offering'].save(update_fields=['default_class_type', 'required_block_size', 'room_type_requirement'])
+    CourseOfferingFaculty.objects.create(course_offering=data['offering'], faculty=data['faculty'])
+    body = (b'Section,Course Code,Employee Code,Day,Time Slot,Room No.,Entry Type\n'
+            b'A,CS101,F001,Monday,9:00-10:00,R101,PRACTICAL\n'
+            b'A,CS101,F001,Monday,10:00-11:00,R102,PRACTICAL\n')
+
+    response = client.post(
+        f'/api/versions/{data["version"].pk}/imports/timetable/preview/',
+        {'file': SimpleUploadedFile('split-room.csv', body, content_type='text/csv')}, format='multipart')
+
+    assert response.status_code == 200
+    assert response.data['valid'] == 0 and response.data['invalid'] == 2
+    assert {error['code'] for error in response.data['errors']} == {'PRACTICAL_BLOCK_INCOMPLETE'}

@@ -127,13 +127,25 @@ def verify(version, expected_rows=1692):
             practical_block_violations += len(invalid_runs)
             for run in invalid_runs:
                 sample = practical_entries[key][0]
+                involved = [entry for entry in practical_entries[key]
+                            if any(slot.order in run for slot in windows[entry.pk])]
+                run_slots = sorted(
+                    {slot.pk: slot for entry in involved for slot in windows[entry.pk]}.values(),
+                    key=lambda slot: slot.order,
+                )
                 practical_block_details.append({
                     'section': sample.section.name,
                     'course': offering.course.code,
+                    'course_offering_id': str(offering.pk),
                     'weekday': sample.weekday,
                     'room': sample.room.code if sample.room_id else 'ONLINE',
                     'periods': len(run),
                     'required_block_size': offering.required_block_size,
+                    'weekly_periods': offering.weekly_periods,
+                    'allow_remainder_period': offering.allow_remainder_period,
+                    'entry_ids': [str(entry.pk) for entry in involved],
+                    'faculty_ids': list(key[3]),
+                    'times': [slot.label for slot in run_slots],
                 })
 
     report = {
@@ -224,6 +236,7 @@ class Command(BaseCommand):
             for item in report['practical_block_details']:
                 self.stdout.write(
                     f'- {item["section"]} / {item["course"]} / weekday {item["weekday"]} '
-                    f'/ {item["room"]}: {item["periods"]} contiguous period(s); '
-                    f'required block {item["required_block_size"]}'
+                    f'/ {item["room"]} / {", ".join(item["times"])}: '
+                    f'{item["periods"]} contiguous period(s); required block '
+                    f'{item["required_block_size"]}; entries {", ".join(item["entry_ids"])}'
                 )

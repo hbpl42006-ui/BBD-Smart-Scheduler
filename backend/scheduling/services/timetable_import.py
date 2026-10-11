@@ -31,6 +31,36 @@ def _faculty_display_name(faculty):
     linked=f'{faculty.user.first_name} {faculty.user.last_name}'.strip() if faculty.user_id else ''
     return linked or faculty.name or faculty.initials or faculty.employee_code or ''
 
+
+def _practical_block_errors(grouped, slot_by_template):
+    """Validate practical sessions after row-level parsing has grouped team teaching."""
+    practical_identities=[identity for identity in grouped if identity[6]=='PRACTICAL']
+    offerings=CourseOffering.objects.in_bulk({identity[1] for identity in practical_identities})
+    slots={slot.pk:slot for template_slots in slot_by_template.values() for slot in template_slots}
+    sessions=defaultdict(list)
+    for identity in practical_identities:
+        section_id,offering_id,day,slot_id,room_id,block,_,_=identity
+        offering=offerings[offering_id]
+        if offering.required_block_size<=1 or offering.allow_remainder_period:
+            continue
+        faculty_ids=tuple(sorted(str(faculty.pk) for _,faculty,_ in grouped[identity]))
+        start=slots[slot_id]
+        occupied=tuple(range(start.order,start.order+block))
+        sessions[(offering_id,day,room_id,faculty_ids)].append((identity,occupied))
+    bad={}
+    for (offering_id,day,room_id,_faculty_ids),items in sessions.items():
+        offering=offerings[offering_id]
+        by_order={order:identity for identity,orders in items for order in orders}
+        runs=[]
+        for order in sorted(by_order):
+            if not runs or order!=runs[-1][-1]+1:runs.append([order])
+            else:runs[-1].append(order)
+        for run in runs:
+            if len(run)%offering.required_block_size:
+                for identity in {by_order[order] for order in run}:
+                    bad[identity]=(offering.required_block_size,len(run),day,room_id)
+    return bad
+
 def parse(version, rows):
     started=time.monotonic(); logger.info('Timetable preview started')
     rows=_rows(rows); result={'total':len(rows),'valid':0,'invalid':0,'warnings':0,'rows':[],'errors':[]}; grouped={}; seen=set()
@@ -197,7 +227,19 @@ def parse(version, rows):
                 error.update(exc.details)
             result['errors'].append(error)
             result['rows'].append({'row':number,'status':'INVALID','section':str(row.get('section','') or ''),'course_code':str(row.get('course_code','') or ''),'credit':str(row.get('credit','') or ''),'faculty_name':str(row.get('faculty_name','') or ''),'employee_code':str(row.get('employee_code','') or ''),'day':str(row.get('day','') or ''),'time_slot':str(row.get('time_slot','') or ''),'room':str(row.get('room','') or ''),'message':str(exc),'code':getattr(exc,'code',None)})
-    result['valid']=len([x for x in result['rows'] if x.get('status')=='VALID']); logger.info('Validation finished in %.2fs',time.monotonic()-started); return result,grouped
+    bad_blocks=_practical_block_errors(grouped,slot_by_template)
+    if bad_blocks:
+        bad_rows={}
+        for identity,(required_size,actual_size,_day,_room_id) in bad_blocks.items():
+            for row_number,_faculty,_role in grouped.pop(identity):
+                bad_rows[row_number]=(required_size,actual_size)
+        for item in result['rows']:
+            if item.get('row') in bad_rows and item.get('status')=='VALID':
+                required_size,actual_size=bad_rows[item['row']]
+                item['status']='INVALID';item['code']='PRACTICAL_BLOCK_INCOMPLETE'
+                item['message']=f'Practical session has {actual_size} contiguous period(s); required block size is {required_size}. Keep the same offering, faculty, and room for the complete block.'
+                result['errors'].append({'row':item['row'],'code':item['code'],'message':item['message']})
+    result['valid']=len([x for x in result['rows'] if x.get('status')=='VALID']);result['invalid']=len([x for x in result['rows'] if x.get('status')=='INVALID']); logger.info('Validation finished in %.2fs',time.monotonic()-started); return result,grouped
 
 def commit(version, grouped):
     if any(identity[2] not in WORKING_DAYS for identity in grouped):
