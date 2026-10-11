@@ -3,7 +3,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from scheduling.services.timetable_migration import export_package
+from scheduling.services.timetable_migration import export_package, migration_json_dumps
 
 
 class Command(BaseCommand):
@@ -25,7 +25,7 @@ class Command(BaseCommand):
                         f'expected {options["expected_entries"]}.')
             target = Path(options['output']).expanduser().resolve()
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(package, indent=2, sort_keys=True), encoding='utf-8')
+            target.write_text(migration_json_dumps(package, indent=2, sort_keys=True), encoding='utf-8')
         except Exception as exc:
             raise CommandError(str(exc)) from exc
         self.stdout.write(self.style.SUCCESS(

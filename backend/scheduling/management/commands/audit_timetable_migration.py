@@ -3,7 +3,9 @@ import json
 from django.core.management.base import BaseCommand, CommandError
 
 from scheduling.models import TimetableVersion
-from scheduling.services.timetable_migration import version_semantic_fingerprint, _validation_summary
+from scheduling.services.timetable_migration import (
+    _validation_summary, migration_json_dumps, version_semantic_fingerprint,
+)
 
 
 class Command(BaseCommand):
@@ -36,4 +38,4 @@ class Command(BaseCommand):
             if options['include_allocations']:
                 item['semantic_allocations'] = fingerprint['allocations']
             report['versions'].append(item)
-        self.stdout.write(json.dumps(report, indent=2, sort_keys=True))
+        self.stdout.write(migration_json_dumps(report, indent=2, sort_keys=True))

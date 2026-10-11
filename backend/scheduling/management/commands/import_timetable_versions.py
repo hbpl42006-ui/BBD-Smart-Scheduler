@@ -4,7 +4,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from accounts.models import User
 
-from scheduling.services.timetable_migration import import_package
+from scheduling.services.timetable_migration import import_package, migration_json_dumps
 
 
 class Command(BaseCommand):
@@ -55,7 +55,7 @@ class Command(BaseCommand):
             )
         except Exception as exc:
             raise CommandError(str(exc)) from exc
-        self.stdout.write(json.dumps(report, indent=2, sort_keys=True))
+        self.stdout.write(migration_json_dumps(report, indent=2, sort_keys=True))
         if options['report']:
             Path(options['report']).expanduser().write_text(
-                json.dumps(report, indent=2, sort_keys=True), encoding='utf-8')
+                migration_json_dumps(report, indent=2, sort_keys=True), encoding='utf-8')

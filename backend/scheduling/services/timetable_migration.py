@@ -10,6 +10,8 @@ from functools import lru_cache
 from collections import Counter
 from datetime import date, datetime, time
 from decimal import Decimal
+from enum import Enum
+from uuid import UUID
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
@@ -44,6 +46,51 @@ def _json_value(value):
     if isinstance(value, (date, datetime, time)):
         return value.isoformat()
     return value
+
+
+def canonical_json_value(value):
+    """Convert supported values to a deterministic JSON tree; reject unknown types."""
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, Enum):
+        return canonical_json_value(value.value)
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, dict):
+        normalized = {}
+        for key, item in value.items():
+            if isinstance(key, UUID):
+                normalized_key = str(key)
+            elif isinstance(key, Enum):
+                normalized_key = str(key.value)
+            elif isinstance(key, (str, int, float, bool)):
+                normalized_key = str(key)
+            else:
+                raise TypeError(f'Unsupported JSON object key type: {type(key).__name__}.')
+            normalized[normalized_key] = canonical_json_value(item)
+        return normalized
+    if isinstance(value, (list, tuple)):
+        return [canonical_json_value(item) for item in value]
+
+    # Retain Django's explicit support for values such as lazy strings and
+    # timedeltas; unsupported objects still raise instead of being stringified.
+    try:
+        encoded = DjangoJSONEncoder().default(value)
+    except TypeError as exc:
+        raise TypeError(f'Unsupported JSON value type: {type(value).__name__}.') from exc
+    if encoded is value:
+        raise TypeError(f'Unsupported JSON value type: {type(value).__name__}.')
+    return canonical_json_value(encoded)
+
+
+def migration_json_dumps(value, **kwargs):
+    """Serialize a canonical tree; no fallback-to-string for unknown values."""
+    kwargs.setdefault('allow_nan', False)
+    return json.dumps(canonical_json_value(value), cls=DjangoJSONEncoder, **kwargs)
 
 
 def _model_snapshot(instance):
@@ -88,7 +135,8 @@ def _model_snapshot_cached(model, pk):
 
 
 def _snapshot_hash(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), cls=DjangoJSONEncoder).encode()).hexdigest()
+    return hashlib.sha256(migration_json_dumps(
+        value, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
 def _semantic_identity(value):
@@ -104,7 +152,7 @@ def _entry_semantics(entry):
     assignments = []
     for assignment in entry.faculty_assignments.select_related('faculty', 'faculty__department').order_by('faculty_id'):
         assignments.append({'faculty': _semantic_identity(_model_snapshot(assignment.faculty)), 'role': assignment.role})
-    assignments.sort(key=lambda row: json.dumps(row, sort_keys=True, separators=(',', ':'), cls=DjangoJSONEncoder))
+    assignments.sort(key=lambda row: migration_json_dumps(row, sort_keys=True, separators=(',', ':')))
     return {
         'section': _semantic_identity(_model_snapshot(entry.section)),
         'offering': _semantic_identity(_model_snapshot(entry.course_offering)),
@@ -123,7 +171,7 @@ def version_semantic_fingerprint(version):
         'course_offering__semester__session', 'start_slot__template__institution',
         'room__reserved_program',
     ).prefetch_related('faculty_assignments__faculty__department')]
-    rows.sort(key=lambda row: json.dumps(row, sort_keys=True, separators=(',', ':'), cls=DjangoJSONEncoder))
+    rows.sort(key=lambda row: migration_json_dumps(row, sort_keys=True, separators=(',', ':')))
     return {'count': len(rows), 'sha256': _snapshot_hash(rows), 'allocations': rows}
 
 
@@ -228,6 +276,7 @@ def export_package(version_ids, include_lineage=True, using='default'):
         'source_database_vendor': __import__('django.db', fromlist=['connections']).connections[using].vendor,
         'versions': output_versions,
     }
+    payload = canonical_json_value(payload)
     payload['sha256'] = _snapshot_hash(payload)
     return payload
 

@@ -1,10 +1,16 @@
 import copy
+import json
+from datetime import date, datetime, time, timezone
+from decimal import Decimal
+from uuid import UUID, uuid4
 
 import pytest
 
 from scheduling.models import ScheduleEntry, ScheduleEntryFaculty, TimetableVersion
 from audit.models import AuditEvent
-from scheduling.services.timetable_migration import export_package, import_package
+from scheduling.services.timetable_migration import (
+    export_package, import_package, migration_json_dumps,
+)
 from scheduling.test_scheduling import data
 
 
@@ -152,3 +158,49 @@ def test_non_equivalent_v5_lineage_requires_note_and_is_audited(data):
     event = AuditEvent.objects.get(event_type='TIMETABLE_VERSION_LINEAGE_OVERRIDE')
     assert event.metadata['package_sha256'] == package['sha256']
     assert 'Reviewed and approved' in event.metadata['approval_note']
+
+
+@pytest.mark.django_db
+def test_export_json_round_trip_preserves_canonical_uuid_references(data):
+    _, v6, v7 = make_v6_v7(data)
+    package = export_package([str(v6.pk), str(v7.pk)])
+
+    encoded = migration_json_dumps(package, indent=2, sort_keys=True)
+    decoded = json.loads(encoded)
+    v6_id, v7_id = remove_exported_versions(v6, v7)
+    report = import_package(decoded, apply=True)
+
+    assert report['mode'] == 'APPLIED'
+    assert decoded['versions'][0]['id'] == v6_id
+    assert decoded['versions'][1]['id'] == v7_id
+    for version_row in decoded['versions']:
+        assert len(version_row['entries']) == 1
+        entry = version_row['entries'][0]
+        UUID(entry['id'])
+        UUID(entry['section_id'])
+        UUID(entry['course_offering_id'])
+        UUID(entry['start_slot_id'])
+        UUID(entry['assignments'][0]['id'])
+        UUID(entry['assignments'][0]['faculty_id'])
+        assert TimetableVersion.objects.get(pk=version_row['id']).entries.count() == 1
+
+
+def test_migration_json_encoder_handles_supported_types_and_rejects_unknown():
+    identifier = uuid4()
+    value = {
+        'uuid': identifier,
+        'date': date(2026, 10, 11),
+        'datetime': datetime(2026, 10, 11, 12, 30, tzinfo=timezone.utc),
+        'time': time(12, 30),
+        'decimal': Decimal('3.00'),
+    }
+
+    decoded = json.loads(migration_json_dumps(value))
+
+    assert decoded == {
+        'uuid': str(identifier), 'date': '2026-10-11',
+        'datetime': '2026-10-11T12:30:00+00:00', 'time': '12:30:00',
+        'decimal': '3.00',
+    }
+    with pytest.raises(TypeError, match='Unsupported JSON value type'):
+        migration_json_dumps({'unsupported': object()})
